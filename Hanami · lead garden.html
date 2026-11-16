@@ -128,11 +128,80 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
  .content{padding:16px 14px 70px}.nbar{padding:10px 14px;flex-wrap:wrap}
 }
 
+/* auth page */
+.auth-wrap{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:18px;overflow-y:auto}
+.auth-card{width:100%;max-width:410px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:30px 26px;box-shadow:0 18px 48px rgba(0,0,0,.26)}
+.auth-tab{flex:1;border:0;background:none;color:var(--mute);padding:8px 12px;font-weight:600;font-size:13.5px;border-radius:8px;cursor:pointer;transition:all .15s}
+.auth-tab.on{background:var(--card);color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.12)}
+.banner.err{background:var(--redl);color:var(--red);border-color:color-mix(in srgb,var(--red) 30%,transparent)}
+.banner.ok{background:var(--leafl);color:var(--leaf);border-color:color-mix(in srgb,var(--leaf) 30%,transparent)}
+
 </style>
 </head>
 <body>
 <div id="petals" aria-hidden="true"></div>
-<div class="app" id="app">
+
+<!-- Login / Sign-up Screen -->
+<div id="authPage" class="auth-wrap">
+  <div class="auth-card">
+    <div style="text-align:center;margin-bottom:18px">
+      <div id="authMascot" style="display:inline-block;margin-bottom:6px"></div>
+      <h1 style="font-size:24px;font-weight:700;margin:0 0 4px;color:var(--ink)">Hanami</h1>
+      <p class="meta" style="margin:0;font-size:13px">Lead garden · Prospecting &amp; outreach CRM</p>
+    </div>
+
+    <div style="display:flex;background:var(--field);padding:4px;border-radius:10px;margin-bottom:18px;border:1px solid var(--line)">
+      <button type="button" class="auth-tab on" id="tabSignInBtn">Sign In</button>
+      <button type="button" class="auth-tab" id="tabSignUpBtn">Create Account</button>
+    </div>
+
+    <div id="authAlert" class="banner" style="display:none;margin-bottom:14px;padding:10px 12px;font-size:13px"></div>
+
+    <!-- Sign In Form -->
+    <form id="signInForm" style="display:flex;flex-direction:column;gap:12px" onsubmit="return false;">
+      <div>
+        <label for="loginEmail" style="font-size:12px;color:var(--mute);margin-bottom:4px;display:block">Email address</label>
+        <input type="email" id="loginEmail" placeholder="you@company.com" autocomplete="email" required>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label for="loginPassword" style="font-size:12px;color:var(--mute)">Password</label>
+        </div>
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn" id="btnSignInSubmit" style="margin-top:6px;padding:10px 16px;font-size:14px;font-weight:600">
+        Sign In to My Garden
+      </button>
+    </form>
+
+    <!-- Create Account Form -->
+    <form id="signUpForm" style="display:none;flex-direction:column;gap:12px" onsubmit="return false;">
+      <div>
+        <label for="signupName" style="font-size:12px;color:var(--mute);margin-bottom:4px;display:block">Your Name or Nickname</label>
+        <input type="text" id="signupName" placeholder="e.g. Ash" autocomplete="name" required>
+      </div>
+      <div>
+        <label for="signupEmail" style="font-size:12px;color:var(--mute);margin-bottom:4px;display:block">Email address</label>
+        <input type="email" id="signupEmail" placeholder="you@company.com" autocomplete="email" required>
+      </div>
+      <div>
+        <label for="signupPassword" style="font-size:12px;color:var(--mute);margin-bottom:4px;display:block">Password (at least 6 characters)</label>
+        <input type="password" id="signupPassword" placeholder="••••••••" minlength="6" autocomplete="new-password" required>
+      </div>
+      <button type="submit" class="btn" id="btnSignUpSubmit" style="margin-top:6px;padding:10px 16px;font-size:14px;font-weight:600">
+        Create Account &amp; Start Garden
+      </button>
+    </form>
+
+    <div style="text-align:center;margin-top:20px;border-top:1px dashed var(--line);padding-top:14px">
+      <button type="button" id="btnGuest" style="background:none;border:none;color:var(--mute);font-size:12px;cursor:pointer;text-decoration:underline">
+        Or continue as guest (saved on this device only)
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none">
 <aside id="side">
   <div class="brand"><span id="mascot"></span><span>Hanami</span></div>
   <nav id="nav">
@@ -163,6 +232,7 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
       <button class="ib" id="bell" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="bb" id="bellb" style="display:none"></span></button>
       <button class="ib" id="supabaseBtn" title="Supabase Cloud Sync" aria-label="Supabase Cloud"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></button>
       <button class="ib" id="themeb" aria-label="Theme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg></button>
+      <button class="sm" id="logoutBtn" title="Log out" style="display:none;font-size:12px;padding:6px 12px;border-radius:8px">Log out</button>
       <span class="avt" id="avt">H</span>
     </div>
   </div>
@@ -376,7 +446,8 @@ function render(){
 const find=id=>leads.find(l=>l.id===id);
 document.addEventListener('click',ev=>{
  const t=ev.target.closest('button');if(!t)return;
- if(t.id==='supabaseBtn'){if(window.HanamiSupabase)window.HanamiSupabase.openAuthModal();return}
+ if(t.id==='supabaseBtn'||t.id==='avt'){if(window.HanamiSupabase)window.HanamiSupabase.openAuthModal();return}
+ if(t.id==='logoutBtn'){if(window.HanamiSupabase)window.HanamiSupabase.signOut();return}
  if(t.id==='sbCloseTop'){if(window.HanamiSupabase)window.HanamiSupabase.closeAuthModal();return}
  if(t.id==='clue'||t.dataset.clue)return qopen();
  if(t.dataset.undo){undoRemove();return}
