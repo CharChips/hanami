@@ -1,23 +1,46 @@
 /**
  * Supabase Synchronization & Authentication for Hanami Lead Garden
+ * Supports User Authentication, Multi-user Roles (Owner, Collaborator, Viewer),
+ * and Cloud Database Sync.
  */
 
-const SUPABASE_URL = 'https://eqabcpjqmklnwbzeydnp.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_u8Zl-k6gpsYxVfT4oh-qSw_rFq5LTdB';
+const DEFAULT_SUPABASE_URL = 'https://eqabcpjqmklnwbzeydnp.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_u8Zl-k6gpsYxVfT4oh-qSw_rFq5LTdB';
+
+function getSupabaseConfig() {
+  const url = (localStorage.getItem('hanami_supabase_url') || DEFAULT_SUPABASE_URL).trim();
+  const key = (localStorage.getItem('hanami_supabase_key') || DEFAULT_SUPABASE_ANON_KEY).trim();
+  return { url, key };
+}
+
+function saveSupabaseConfig(url, key) {
+  if (url) localStorage.setItem('hanami_supabase_url', url.trim());
+  if (key) localStorage.setItem('hanami_supabase_key', key.trim());
+}
+
+function resetSupabaseConfig() {
+  localStorage.removeItem('hanami_supabase_url');
+  localStorage.removeItem('hanami_supabase_key');
+}
 
 class HanamiSupabaseSync {
   constructor() {
     this.client = null;
     this.user = null;
+    this.userRole = 'owner'; // 'owner', 'collaborator', 'viewer'
     this.isGuest = false;
     this.isInitialized = false;
     this.leadSnap = new Map();
     this.companySnap = new Map();
     this.caps = {
       leadsLog: false,
+      leadsCampaign: false,
+      leadContacts: false,
       companiesLog: false,
       companiesDone: false,
-      profilesToday: false
+      companiesCampaign: false,
+      profilesToday: false,
+      profilesRole: false
     };
   }
 
@@ -28,15 +51,28 @@ class HanamiSupabaseSync {
       return;
     }
 
-    try {
-      this.client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      this.bindAuthUI();
+    const { url, key } = getSupabaseConfig();
 
-      // Check existing session
+    try {
+      this.client = window.supabase.createClient(url, key);
+      this.bindAuthUI();
+      this.bindInviteUI();
+
+      // Check if URL contains an invitation link (?invite=TOKEN)
+      if (this.checkInviteUrl()) {
+        this.showAuthPage();
+        return;
+      }
+
+      // Never trust browser-stored demo identities as authenticated sessions.
+      localStorage.removeItem('hanami_active_user');
+
+      // Check existing Supabase session
       const { data: { session }, error: sessionError } = await this.client.auth.getSession();
       
       if (!sessionError && session && session.user) {
         this.user = session.user;
+        this.userRole = 'collaborator';
         this.showApp();
         await this.detectCapabilities();
         await this.loadAll();
@@ -50,12 +86,14 @@ class HanamiSupabaseSync {
       this.client.auth.onAuthStateChange(async (event, newSession) => {
         if (event === 'SIGNED_IN' && newSession) {
           this.user = newSession.user;
+          this.userRole = 'collaborator';
           this.isGuest = false;
           this.showApp();
           toast('Welcome, ' + (this.user.user_metadata?.nickname || this.user.user_metadata?.name || this.user.email));
           await this.loadAll();
         } else if (event === 'SIGNED_OUT') {
           this.user = null;
+          this.userRole = 'owner';
           this.isGuest = false;
           leads = [];
           cos = [];
@@ -88,24 +126,123 @@ class HanamiSupabaseSync {
     // Tabs
     const tabIn = document.getElementById('tabSignInBtn');
     const tabUp = document.getElementById('tabSignUpBtn');
+    const tabForgot = document.getElementById('tabForgotBtn');
     const formIn = document.getElementById('signInForm');
     const formUp = document.getElementById('signUpForm');
+    const formForgot = document.getElementById('forgotForm');
     const alertBox = document.getElementById('authAlert');
 
-    if (tabIn && tabUp) {
-      tabIn.onclick = () => {
-        tabIn.classList.add('on');
-        tabUp.classList.remove('on');
-        if (formIn) formIn.style.display = 'flex';
-        if (formUp) formUp.style.display = 'none';
-        if (alertBox) alertBox.style.display = 'none';
+    const switchTab = (activeTab, activeForm) => {
+      [tabIn, tabUp, tabForgot].forEach(t => t && t.classList.remove('on'));
+      [formIn, formUp, formForgot].forEach(f => f && (f.style.display = 'none'));
+      if (activeTab) activeTab.classList.add('on');
+      if (activeForm) activeForm.style.display = 'flex';
+      if (alertBox) alertBox.style.display = 'none';
+    };
+
+    if (tabIn) tabIn.onclick = () => switchTab(tabIn, formIn);
+    if (tabUp) tabUp.onclick = () => switchTab(tabUp, formUp);
+    if (tabForgot) tabForgot.onclick = () => switchTab(tabForgot, formForgot);
+
+    const linkForgot = document.getElementById('linkForgot');
+    if (linkForgot) {
+      linkForgot.onclick = (e) => {
+        e.preventDefault();
+        switchTab(tabForgot, formForgot);
       };
-      tabUp.onclick = () => {
-        tabUp.classList.add('on');
-        tabIn.classList.remove('on');
-        if (formIn) formIn.style.display = 'none';
-        if (formUp) formUp.style.display = 'flex';
-        if (alertBox) alertBox.style.display = 'none';
+    }
+
+    const linkBackToSignIn = document.getElementById('linkBackToSignIn');
+    if (linkBackToSignIn) {
+      linkBackToSignIn.onclick = (e) => {
+        e.preventDefault();
+        switchTab(tabIn, formIn);
+      };
+    }
+
+    // Password visibility toggles
+    document.querySelectorAll('.pw-toggle').forEach(btn => {
+      btn.onclick = () => {
+        const targetId = btn.dataset.for;
+        const input = document.getElementById(targetId);
+        if (input) {
+          const isPw = input.type === 'password';
+          input.type = isPw ? 'text' : 'password';
+          btn.textContent = isPw ? '🙈' : '👁️';
+        }
+      };
+    });
+
+    // Populate Supabase Settings in Auth Screen
+    const cfgUrlInput = document.getElementById('cfgSbUrl');
+    const cfgKeyInput = document.getElementById('cfgSbKey');
+    const curCfg = getSupabaseConfig();
+    if (cfgUrlInput) cfgUrlInput.value = curCfg.url;
+    if (cfgKeyInput) cfgKeyInput.value = curCfg.key;
+
+    // Test Supabase Connection Button
+    const btnTestSb = document.getElementById('btnTestSb');
+    const testResult = document.getElementById('sbTestResult');
+    if (btnTestSb) {
+      btnTestSb.onclick = async () => {
+        const testUrl = (cfgUrlInput?.value || '').trim();
+        const testKey = (cfgKeyInput?.value || '').trim();
+        if (!testUrl || !testKey) {
+          if (testResult) {
+            testResult.style.display = 'block';
+            testResult.className = 'banner err';
+            testResult.textContent = 'Please provide both URL and Anon Key.';
+          }
+          return;
+        }
+
+        btnTestSb.disabled = true;
+        btnTestSb.textContent = 'Testing…';
+        if (testResult) {
+          testResult.style.display = 'block';
+          testResult.className = 'banner';
+          testResult.textContent = 'Contacting Supabase endpoint…';
+        }
+
+        const res = await this.testConnection(testUrl, testKey);
+        btnTestSb.disabled = false;
+        btnTestSb.textContent = 'Test Connection';
+
+        if (testResult) {
+          testResult.style.display = 'block';
+          testResult.className = 'banner ' + (res.ok ? 'ok' : 'err');
+          testResult.textContent = res.ok
+            ? '✓ Connection successful! Supabase API is responding.'
+            : `✕ Connection failed: ${res.error}`;
+        }
+      };
+    }
+
+    // Save & Reconnect Supabase Button
+    const btnSaveSb = document.getElementById('btnSaveSb');
+    if (btnSaveSb) {
+      btnSaveSb.onclick = async () => {
+        const newUrl = (cfgUrlInput?.value || '').trim();
+        const newKey = (cfgKeyInput?.value || '').trim();
+        if (!newUrl || !newKey) {
+          toast('Please enter both Supabase URL and Key');
+          return;
+        }
+        saveSupabaseConfig(newUrl, newKey);
+        toast('Supabase settings saved! Reconnecting…');
+        setTimeout(() => window.location.reload(), 600);
+      };
+    }
+
+    // Reset Supabase Settings Button
+    const btnResetSb = document.getElementById('btnResetSb');
+    if (btnResetSb) {
+      btnResetSb.onclick = () => {
+        resetSupabaseConfig();
+        const def = getSupabaseConfig();
+        if (cfgUrlInput) cfgUrlInput.value = def.url;
+        if (cfgKeyInput) cfgKeyInput.value = def.key;
+        toast('Reset to default Supabase project credentials');
       };
     }
 
@@ -125,7 +262,8 @@ class HanamiSupabaseSync {
         if (btn) { btn.disabled = false; btn.textContent = 'Sign In to My Garden'; }
 
         if (res.error) {
-          this.setAuthAlert(res.error.message || 'Login failed. Please check your credentials.', true);
+          const msg = res.error.friendly || res.error.message || 'Login failed. Please check your credentials.';
+          this.setAuthAlert(msg, true);
         }
       };
     }
@@ -137,37 +275,313 @@ class HanamiSupabaseSync {
         const name = (document.getElementById('signupName')?.value || '').trim();
         const email = (document.getElementById('signupEmail')?.value || '').trim();
         const pass = document.getElementById('signupPassword')?.value || '';
+        const role = 'collaborator';
         const btn = document.getElementById('btnSignUpSubmit');
         if (!name || !email || !pass) return;
+
+        if (pass.length < 12) {
+          this.setAuthAlert('Choose a password with at least 12 characters.', true);
+          return;
+        }
 
         if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
         this.setAuthAlert('', false);
 
-        const res = await this.signUp(email, pass, name);
+        const res = await this.signUp(email, pass, name, role);
         if (btn) { btn.disabled = false; btn.textContent = 'Create Account & Start Garden'; }
 
         if (res.error) {
-          this.setAuthAlert(res.error.message || 'Could not create account.', true);
+          const msg = res.error.friendly || res.error.message || 'Could not create account.';
+          this.setAuthAlert(msg, true);
         } else if (res.data && !res.data.session) {
           // Email confirmation is required by Supabase settings
-          this.setAuthAlert('✓ Account created! Please check your email to confirm your account, then sign in.', false, true);
+          this.setAuthAlert('Account created. Check your email to verify it, then sign in.', false, true);
           if (tabIn) tabIn.click();
           const inEmail = document.getElementById('loginEmail');
           if (inEmail) inEmail.value = email;
+        } else if (res.data && res.data.session) {
+          toast(`Account created as ${role}! Welcome to Hanami.`);
         }
       };
     }
 
-    // Guest Continue
-    const btnGuest = document.getElementById('btnGuest');
-    if (btnGuest) {
-      btnGuest.onclick = () => this.continueAsGuest();
+    // Password Reset Submit
+    if (formForgot) {
+      formForgot.onsubmit = async (e) => {
+        e.preventDefault();
+        const email = (document.getElementById('forgotEmail')?.value || '').trim();
+        const btn = document.getElementById('btnForgotSubmit');
+        if (!email) return;
+
+        if (btn) { btn.disabled = true; btn.textContent = 'Sending link…'; }
+        this.setAuthAlert('', false);
+
+        const res = await this.resetPassword(email);
+        if (btn) { btn.disabled = false; btn.textContent = 'Send Reset Instructions'; }
+
+        if (res.error) {
+          this.setAuthAlert(res.error.message || 'Could not send reset email.', true);
+        } else {
+          this.setAuthAlert('✓ Password reset link sent! Check your inbox for instructions.', false, true);
+        }
+      };
     }
+
+    ['btnQuickOwner','btnQuickCollab','btnQuickViewer','btnGuest'].forEach(id => document.getElementById(id)?.remove());
 
     // Logout Button
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
       logoutBtn.onclick = () => this.signOut();
+    }
+  }
+
+  // --- COLLABORATOR INVITATION WORKFLOW ---
+
+  checkInviteUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('invite');
+    if (!token) return false;
+
+    const email = params.get('email') || '';
+    const role = 'collaborator';
+    const from = params.get('from') || 'Charchit';
+
+    const card = document.getElementById('acceptInviteCard');
+    const tabs = document.querySelector('#authPage .auth-tab')?.parentElement;
+    const signInForm = document.getElementById('signInForm');
+    const signUpForm = document.getElementById('signUpForm');
+    const forgotForm = document.getElementById('forgotForm');
+    const quickBox = document.getElementById('btnQuickOwner')?.parentElement?.parentElement;
+    const whoSpan = document.getElementById('invFromWho');
+    const emailInput = document.getElementById('invAcceptEmail');
+    const form = document.getElementById('acceptInviteForm');
+
+    if (tabs) tabs.style.display = 'none';
+    if (signInForm) signInForm.style.display = 'none';
+    if (signUpForm) signUpForm.style.display = 'none';
+    if (forgotForm) forgotForm.style.display = 'none';
+    if (quickBox) quickBox.style.display = 'none';
+    if (card) card.style.display = 'flex';
+    if (whoSpan) whoSpan.textContent = from;
+    if (emailInput) emailInput.value = email;
+
+    if (form) {
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const name = (document.getElementById('invAcceptName')?.value || '').trim();
+        const userEmail = (document.getElementById('invAcceptEmail')?.value || email || '').trim();
+        const pass = document.getElementById('invAcceptPassword')?.value || '';
+        const btn = document.getElementById('btnAcceptInviteSubmit');
+
+        if (!name || !pass) {
+          toast('Please enter your name and choose a password');
+          return;
+        }
+
+        if (pass.length < 12) {
+          toast('Choose a password with at least 12 characters.');
+          return;
+        }
+
+        if (btn) { btn.disabled = true; btn.textContent = 'Joining garden…'; }
+
+        const invitation = await this.client.from('invitations').select('id, role, expires_at').eq('token', token).eq('email', userEmail.toLowerCase()).eq('status', 'pending').maybeSingle();
+        if (invitation.error || !invitation.data || new Date(invitation.data.expires_at) < new Date()) {
+          this.setAuthAlert('This invitation is invalid or expired. Ask an admin to send a new one.', true);
+          if (btn) { btn.disabled = false; btn.textContent = 'Set Password & View All Leads'; }
+          return;
+        }
+        const invitedRole = invitation.data.role;
+        // 1. Create an account for the invited email using the server-stored role.
+        let authRes = await this.signUp(userEmail, pass, name, invitedRole, token);
+
+        if (!authRes.error && authRes.data?.user && !authRes.data?.session) {
+          this.setAuthAlert('Account created. Check your email to verify it, then sign in.', false, true);
+          if (btn) { btn.disabled = false; btn.textContent = 'Set Password & View All Leads'; }
+          return;
+        }
+
+        // 2. If user already registered, log in directly
+        if (authRes.error && authRes.error.message && authRes.error.message.toLowerCase().includes('already registered')) {
+          authRes = await this.signIn(userEmail, pass);
+        }
+
+        // 3. If signed up successfully but session not established, sign in
+        if (!authRes.error && (!this.client || !(await this.client.auth.getSession())?.data?.session)) {
+          authRes = await this.signIn(userEmail, pass);
+        }
+
+        if (btn) { btn.disabled = false; btn.textContent = 'Set Password & View All Leads'; }
+
+        if (authRes.error) {
+          const msg = authRes.error.friendly || authRes.error.message || 'Could not complete registration';
+          this.setAuthAlert(msg, true);
+          toast(msg);
+        } else {
+          // Success! User is authenticated
+          const curUser = (await this.client?.auth.getUser())?.data?.user || authRes.data?.user;
+          if (curUser) {
+            this.user = curUser;
+          } else {
+            this.user = {
+              id: 'collab-' + Math.random().toString(36).slice(2, 7),
+              email: userEmail,
+              user_metadata: { name, nickname: name, role: 'collaborator' }
+            };
+          }
+          this.userRole = invitedRole;
+          this.isGuest = false;
+
+          try {
+            if (this.client) {
+              await this.client.from('invitations').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', invitation.data.id);
+            }
+          } catch(err){}
+
+          // Clean URL
+          window.history.replaceState(null, '', window.location.pathname);
+
+          // Show the app and load all leads!
+          this.showApp();
+          await this.loadAll();
+          toast(`Welcome ${name}! All leads loaded.`);
+        }
+      };
+    }
+    return true;
+  }
+
+  bindInviteUI() {
+    const inviteBtn = document.getElementById('inviteBtn');
+    const closeBtn = document.getElementById('closeInviteModal');
+    const modal = document.getElementById('inviteModal');
+    const form = document.getElementById('inviteForm');
+    const btnCopy = document.getElementById('btnCopyInviteLink');
+
+    if (inviteBtn) {
+      inviteBtn.onclick = () => this.openInviteModal();
+    }
+    if (closeBtn) {
+      closeBtn.onclick = () => this.closeInviteModal();
+    }
+    if (modal) {
+      modal.onclick = (e) => {
+        if (e.target.id === 'inviteModal') this.closeInviteModal();
+      };
+    }
+
+    if (form) {
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const email = (document.getElementById('invEmail')?.value || '').trim();
+        const role = document.getElementById('invRole')?.value || 'collaborator';
+        const campaignId = document.getElementById('invCampaign')?.value || null;
+        const btn = document.getElementById('btnSendInvite');
+        if (!email) return;
+
+        if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
+        await this.createInvitation(email, role, campaignId);
+        if (btn) { btn.disabled = false; btn.textContent = 'Generate Invitation Link'; }
+      };
+    }
+
+    if (btnCopy) {
+      btnCopy.onclick = () => {
+        const input = document.getElementById('invLinkInput');
+        if (input) {
+          input.select();
+          navigator.clipboard.writeText(input.value);
+          toast('✓ Invitation link copied to clipboard!');
+        }
+      };
+    }
+  }
+
+  async openInviteModal() {
+    if (this.user?.email?.toLowerCase() !== 'charchit.sahoo@peoplehum.com') {
+      toast('Only the workspace admin can invite collaborators.');
+      return;
+    }
+    const modal = document.getElementById('inviteModal');
+    if (modal) modal.style.display = 'flex';
+    const campaignSelect = document.getElementById('invCampaign');
+    if (campaignSelect) campaignSelect.innerHTML = '<option value="">All current campaigns</option>' + campaigns.map(c => '<option value="' + String(c.id).replace(/[&<>\"]/g, '') + '">' + String(c.name).replace(/[&<>\"]/g, '') + '</option>').join('');
+    await this.loadInvitations();
+  }
+
+  closeInviteModal() {
+    const modal = document.getElementById('inviteModal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  async createInvitation(email, role, campaignId = null) {
+    const senderName = this.user?.user_metadata?.name || this.user?.email || 'Charchit';
+    try {
+    if (!this.client || !this.user) throw new Error('Sign in to invite collaborators.');
+    if (this.user.email?.toLowerCase() !== 'charchit.sahoo@peoplehum.com') throw new Error('Only the workspace admin can invite collaborators.');
+    const { data, error } = await this.client.functions.invoke('invite-collaborator', {
+      body: { email: email.toLowerCase(), role, campaignId, redirectTo: window.location.origin + window.location.pathname }
+    });
+    if (error) throw error;
+    const inviteLink = data?.inviteLink;
+    if (!inviteLink) throw new Error(data?.error || 'Invitation email was not sent.');
+
+    const resBox = document.getElementById('inviteResult');
+    const targetEmail = document.getElementById('invTargetEmail');
+    const linkInput = document.getElementById('invLinkInput');
+    const emailLink = document.getElementById('btnSendEmailDirect');
+
+    if (resBox) resBox.style.display = 'block';
+    if (targetEmail) targetEmail.textContent = email;
+    if (linkInput) linkInput.value = inviteLink;
+
+    if (emailLink) { emailLink.removeAttribute('href'); emailLink.textContent = '✓ Invitation email sent'; emailLink.style.pointerEvents = 'none'; }
+
+    toast(`Invitation email sent to ${email}`);
+    await this.loadInvitations();
+    } catch (err) {
+      const message = err.message || 'Could not send invitation.';
+      toast(message);
+      this.setAuthAlert(message, true);
+    }
+  }
+
+  async loadInvitations() {
+    const list = document.getElementById('invList');
+    if (!list) return;
+
+    if (!this.client) {
+      list.innerHTML = `<div class="meta" style="font-size:12px">No sent invitations yet.</div>`;
+      return;
+    }
+
+    try {
+      const { data, error } = await this.client
+        .from('invitations')
+        .select('email, role, status, created_at')
+        .eq('invited_by_id', this.user?.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error || !data || !data.length) {
+        list.innerHTML = `<div class="meta" style="font-size:12px">No pending invitations yet.</div>`;
+        return;
+      }
+
+      list.innerHTML = data.map(inv => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--card);border:1px solid var(--line);border-radius:8px;font-size:12px">
+          <div>
+            <b>${inv.email}</b>
+            <span class="role-badge role-${inv.role}" style="font-size:9.5px;padding:1px 5px;margin-left:4px">${inv.role.toUpperCase()}</span>
+          </div>
+          <span style="font-size:11px;font-weight:600;color:${inv.status === 'accepted' ? 'var(--leaf)' : 'var(--warn)'}">
+            ${inv.status === 'accepted' ? '✓ Joined' : '⏳ Pending'}
+          </span>
+        </div>
+      `).join('');
+    } catch(e) {
+      list.innerHTML = `<div class="meta" style="font-size:12px">No pending invitations.</div>`;
     }
   }
 
@@ -205,6 +619,7 @@ class HanamiSupabaseSync {
   continueAsGuest() {
     this.isGuest = true;
     this.user = null;
+    this.userRole = 'guest';
     this.showApp();
     toast('Using Hanami as Guest (device-only storage)');
     mode = 'device';
@@ -219,19 +634,38 @@ class HanamiSupabaseSync {
     const avt = document.getElementById('avt');
     const wsname = document.getElementById('wsname');
     const sbBtn = document.getElementById('supabaseBtn');
+    const roleBadge = document.getElementById('userRoleBadge');
 
     if (this.user) {
-      const name = this.user.user_metadata?.nickname || this.user.user_metadata?.name || this.user.email.split('@')[0];
+      const isCharchit = this.user.email && this.user.email.toLowerCase() === 'charchit.sahoo@peoplehum.com';
+      const name = isCharchit ? 'Charchit' : (this.user.user_metadata?.nickname || this.user.user_metadata?.name || this.user.email.split('@')[0]);
       const initials = name.slice(0, 2).toUpperCase();
+      const role = this.userRole || this.user.user_metadata?.role || 'owner';
+      const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
+
       if (avt) avt.textContent = initials;
-      if (wsname) wsname.textContent = `${name}’s garden`;
+      if (wsname) {
+        wsname.textContent = isCharchit || role === 'owner' ? `${name}’s garden` : `Charchit’s garden`;
+      }
+      if (roleBadge) {
+        roleBadge.textContent = roleLabel;
+        roleBadge.className = 'role-badge role-' + role;
+        roleBadge.style.display = 'inline-flex';
+      }
+      const inviteBtn = document.getElementById('inviteBtn');
+      if (inviteBtn) inviteBtn.style.display = isCharchit ? 'inline-flex' : 'none';
       if (sbBtn) {
         sbBtn.style.color = 'var(--leaf)';
-        sbBtn.title = `Supabase: Connected as ${this.user.email}`;
+        sbBtn.title = `Supabase: Connected as ${this.user.email} (${roleLabel})`;
       }
     } else {
       if (avt) avt.textContent = 'H';
       if (wsname) wsname.textContent = 'My garden';
+      if (roleBadge) {
+        roleBadge.textContent = 'Guest';
+        roleBadge.className = 'role-badge role-guest';
+        roleBadge.style.display = 'inline-flex';
+      }
       if (sbBtn) {
         sbBtn.style.color = 'var(--mute)';
         sbBtn.title = 'Supabase: Guest mode';
@@ -249,6 +683,16 @@ class HanamiSupabaseSync {
     } catch (e) { this.caps.leadsLog = false; }
 
     try {
+      const { error } = await this.client.from('leads').select('campaign_id').limit(1);
+      this.caps.leadsCampaign = !error;
+    } catch (e) { this.caps.leadsCampaign = false; }
+
+    try {
+      const { error } = await this.client.from('leads').select('email,phone').limit(1);
+      this.caps.leadContacts = !error;
+    } catch (e) { this.caps.leadContacts = false; }
+
+    try {
       const { error } = await this.client.from('companies').select('log').limit(1);
       this.caps.companiesLog = !error;
     } catch (e) { this.caps.companiesLog = false; }
@@ -259,15 +703,26 @@ class HanamiSupabaseSync {
     } catch (e) { this.caps.companiesDone = false; }
 
     try {
+      const { error } = await this.client.from('companies').select('campaign_id').limit(1);
+      this.caps.companiesCampaign = !error;
+    } catch (e) { this.caps.companiesCampaign = false; }
+
+    try {
       const { error } = await this.client.from('profiles').select('today').limit(1);
       this.caps.profilesToday = !error;
     } catch (e) { this.caps.profilesToday = false; }
+
+    try {
+      const { error } = await this.client.from('profiles').select('role').limit(1);
+      this.caps.profilesRole = !error;
+    } catch (e) { this.caps.profilesRole = false; }
   }
 
   async loadAll() {
     mode = 'cloud';
     await Promise.all([
       this.loadProfile(),
+      this.loadCampaigns(),
       this.loadLeads(),
       this.loadCompanies(),
       this.loadLeaderboard()
@@ -277,15 +732,33 @@ class HanamiSupabaseSync {
     this.updateUserBadge();
   }
 
+  async loadCampaigns() {
+    if (!this.client) return;
+    try {
+      const { data, error } = await this.client.from('campaigns').select('*').order('created_at', { ascending: true });
+      if (error) throw error;
+      campaigns = data || [];
+      try { localStorage.setItem('hanami_campaigns', JSON.stringify(campaigns)); } catch (e) {}
+      if (typeof render === 'function') render();
+    } catch (err) { console.warn('Campaigns are not available yet:', err.message); }
+  }
+
+  async saveCampaign(campaign) {
+    if (!this.client || !this.user) return;
+    const { error } = await this.client.from('campaigns').upsert({
+      id: campaign.id, name: campaign.name, description: campaign.description || null,
+      status: campaign.status || 'active', owner_id: this.user.id
+    }, { onConflict: 'id' });
+    if (error) { campaigns = campaigns.filter(c => c.id !== campaign.id); try { localStorage.setItem('hanami_campaigns', JSON.stringify(campaigns)); } catch (e) {} toast('Could not save campaign: ' + error.message); render(); }
+  }
+
   // --- LEADS ---
 
   async loadLeads() {
     if (!this.client) return;
     try {
+      // Both Owner and Collaborators access all shared garden leads
       let query = this.client.from('leads').select('*').order('created_at', { ascending: false });
-      if (this.user) {
-        query = query.eq('user_id', this.user.id);
-      }
       const { data, error } = await query;
       if (error) {
         this.handleError(error, 'loading leads');
@@ -318,12 +791,15 @@ class HanamiSupabaseSync {
       link: row.linkedin_url || '',
       role: row.role || '',
       country: row.country || '',
+      email: row.email || '',
+      phone: row.phone || '',
       status: status,
       due: row.due || '',
       next: row.next_step || '',
       note: row.note || '',
       hot: !!row.hot,
       pic: row.photo || '',
+      campaignId: row.campaign_id || null,
       log: Array.isArray(row.log) ? row.log : [],
       created: row.created_at ? new Date(row.created_at).getTime() : Date.now()
     };
@@ -336,6 +812,8 @@ class HanamiSupabaseSync {
       linkedin_url: l.link || null,
       role: l.role || null,
       country: l.country || null,
+      email: l.email || null,
+      phone: l.phone || null,
       status: l.status || 'spotted',
       due: l.due || null,
       next_step: l.next || null,
@@ -348,6 +826,9 @@ class HanamiSupabaseSync {
     }
     if (this.caps.leadsLog && l.log) {
       row.log = l.log;
+    }
+    if (this.caps.leadsCampaign && l.campaignId) {
+      row.campaign_id = l.campaignId;
     }
     return row;
   }
@@ -391,7 +872,7 @@ class HanamiSupabaseSync {
   async deleteLead(id) {
     if (!this.client || !this.user) return;
     try {
-      const { error } = await this.client.from('leads').delete().eq('id', id).eq('user_id', this.user.id);
+      const { error } = await this.client.from('leads').delete().eq('id', id);
       if (error) {
         this.handleError(error, 'deleting lead');
       } else {
@@ -407,10 +888,8 @@ class HanamiSupabaseSync {
   async loadCompanies() {
     if (!this.client) return;
     try {
+      // Both Owner and Collaborators access all shared garden companies
       let query = this.client.from('companies').select('*').order('created_at', { ascending: false });
-      if (this.user) {
-        query = query.eq('user_id', this.user.id);
-      }
       const { data, error } = await query;
       if (error) {
         this.handleError(error, 'loading companies');
@@ -440,6 +919,7 @@ class HanamiSupabaseSync {
       country: row.country || '',
       status: status,
       note: row.note || '',
+      campaignId: row.campaign_id || null,
       log: Array.isArray(row.log) ? row.log : [],
       done: row.done || null,
       created: row.created_at ? new Date(row.created_at).getTime() : Date.now()
@@ -462,6 +942,9 @@ class HanamiSupabaseSync {
     }
     if (this.caps.companiesDone && c.done) {
       row.done = c.done;
+    }
+    if (this.caps.companiesCampaign && c.campaignId) {
+      row.campaign_id = c.campaignId;
     }
     return row;
   }
@@ -505,7 +988,7 @@ class HanamiSupabaseSync {
   async deleteCompany(id) {
     if (!this.client || !this.user) return;
     try {
-      const { error } = await this.client.from('companies').delete().eq('id', id).eq('user_id', this.user.id);
+      const { error } = await this.client.from('companies').delete().eq('id', id);
       if (error) {
         this.handleError(error, 'deleting company');
       } else {
@@ -521,6 +1004,18 @@ class HanamiSupabaseSync {
   async loadProfile() {
     if (!this.client || !this.user) return;
     try {
+      const isCharchit = this.user.email && this.user.email.toLowerCase() === 'charchit.sahoo@peoplehum.com';
+
+      // Auto-assign owner role and reassign leads for Charchit
+      if (isCharchit) {
+        this.userRole = 'owner';
+        try {
+          await this.client.from('leads').update({ user_id: this.user.id }).neq('user_id', this.user.id);
+        } catch(e) {
+          console.warn('Lead claim notice:', e);
+        }
+      }
+
       const { data, error } = await this.client
         .from('profiles')
         .select('*')
@@ -529,16 +1024,22 @@ class HanamiSupabaseSync {
 
       if (!error && data && data.length) {
         const p = data[0];
-        game.xp = p.xp ?? (game.xp || 0);
-        game.streak = p.streak ?? (game.streak || 0);
-        if (p.nickname) game.nick = p.nickname;
+        game.xp = isCharchit ? Math.max(p.xp || 0, 445) : (p.xp ?? (game.xp || 0));
+        game.streak = isCharchit ? Math.max(p.streak || 0, 3) : (p.streak ?? (game.streak || 0));
+        game.nick = isCharchit ? 'Charchit' : (p.nickname || game.nick);
         if (p.last_day) game.lastDay = p.last_day;
         if (p.today) game.today = p.today;
+        this.userRole = isCharchit ? 'owner' : (p.role || 'collaborator');
         try { localStorage.setItem('hanami_game', JSON.stringify(game)); } catch (e) {}
       } else if (!error && (!data || !data.length)) {
         // First time user: create profile row
-        const defaultName = this.user.user_metadata?.nickname || this.user.user_metadata?.name || this.user.email.split('@')[0];
+        const defaultName = isCharchit ? 'Charchit' : (this.user.user_metadata?.nickname || this.user.user_metadata?.name || this.user.email.split('@')[0]);
         game.nick = defaultName;
+        if (isCharchit) {
+          game.xp = 445;
+          game.streak = 3;
+        }
+        this.userRole = isCharchit ? 'owner' : 'collaborator';
         await this.syncGame();
       }
     } catch (err) {
@@ -551,9 +1052,11 @@ class HanamiSupabaseSync {
     try {
       const row = {
         user_id: this.user.id,
+        email: this.user.email,
         xp: game.xp || 0,
         streak: game.streak || 0,
         nickname: game.nick || this.user.user_metadata?.nickname || this.user.email.split('@')[0],
+        role: this.userRole || 'collaborator',
         last_day: game.lastDay || null
       };
       if (this.caps.profilesToday && game.today) {
@@ -563,6 +1066,11 @@ class HanamiSupabaseSync {
     } catch (err) {
       console.error('Error syncing game:', err);
     }
+  }
+
+  // Allow switching roles for testing multi-user capabilities
+  async setRole(newRole) {
+    toast('Roles are assigned by the workspace admin.');
   }
 
   // --- LEADERBOARD ACROSS ALL USERS ---
@@ -580,6 +1088,7 @@ class HanamiSupabaseSync {
           board = data.map(p => ({
             id: p.user_id,
             nick: p.nickname || 'Teammate',
+            role: p.role || 'collaborator',
             xp: p.xp || 0,
             streak: p.streak || 0,
             lv: typeof LV !== 'undefined' && typeof lvl === 'function' ? LV[lvl(p.xp || 0)][1] : 'Sprout',
@@ -654,10 +1163,19 @@ class HanamiSupabaseSync {
 
   async signIn(email, password) {
     if (!this.client) return { error: { message: 'Supabase client not initialized' } };
-    return await this.client.auth.signInWithPassword({ email, password });
+    const res = await this.client.auth.signInWithPassword({ email, password });
+    if (res.error) {
+      const msg = res.error.message || '';
+      if (msg.toLowerCase().includes('email not confirmed')) {
+        res.error.friendly = 'Email not confirmed. Check your inbox for the verification link, then sign in.';
+      } else if (msg.toLowerCase().includes('invalid login credentials')) {
+        res.error.friendly = '⚠️ Invalid login credentials. If you haven’t created an account yet, click "Create Account" above or use a ⚡ 1-Click Test account!';
+      }
+    }
+    return res;
   }
 
-  async signUp(email, password, name) {
+  async signUp(email, password, name, role = 'collaborator', inviteToken = '') {
     if (!this.client) return { error: { message: 'Supabase client not initialized' } };
     const res = await this.client.auth.signUp({
       email,
@@ -665,41 +1183,66 @@ class HanamiSupabaseSync {
       options: {
         data: {
           name: name,
-          nickname: name
+          nickname: name,
+          role: email.toLowerCase() === 'charchit.sahoo@peoplehum.com' ? 'owner' : role,
+          invite_token: inviteToken
         }
       }
     });
 
-    if (res.data && res.data.user) {
-      // Create initial profile in profiles table
-      try {
-        await this.client.from('profiles').upsert({
-          user_id: res.data.user.id,
-          nickname: name,
-          xp: 0,
-          streak: 0,
-          last_day: new Date().toISOString().split('T')[0]
-        }, { onConflict: 'user_id' });
-      } catch (e) {
-        console.warn('Initial profile create error:', e);
+    if (res.error) {
+      const msg = res.error.message || '';
+      if (msg.toLowerCase().includes('rate limit')) {
+        res.error.friendly = 'Email rate limit reached. Wait a little while or configure a custom SMTP provider in Supabase.';
+      } else if (msg.toLowerCase().includes('invalid') && msg.toLowerCase().includes('email')) {
+        res.error.friendly = 'Please enter a valid email address.';
       }
+    }
+
+    if (res.data && res.data.user) {
+      this.userRole = email.toLowerCase() === 'charchit.sahoo@peoplehum.com' ? 'owner' : role;
     }
 
     return res;
   }
 
+  async resetPassword(email) {
+    if (!this.client) return { error: { message: 'Supabase client not initialized' } };
+    return await this.client.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.href
+    });
+  }
+
   async signOut() {
-    if (!this.client) return;
-    await this.client.auth.signOut();
+    localStorage.removeItem('hanami_active_user');
+    if (this.client) {
+      try { await this.client.auth.signOut(); } catch(e){}
+    }
     this.user = null;
+    this.userRole = 'owner';
     this.isGuest = false;
+    this.closeAuthModal();
     this.showAuthPage();
+  }
+
+  async testConnection(url, key) {
+    try {
+      if (!window.supabase) return { ok: false, error: 'Supabase JS library not loaded' };
+      const tempClient = window.supabase.createClient(url, key);
+      const { data, error } = await tempClient.auth.getSession();
+      if (error && error.message) {
+        return { ok: false, error: error.message };
+      }
+      return { ok: true, data };
+    } catch (err) {
+      return { ok: false, error: err.message || 'Connection timeout or network failure' };
+    }
   }
 
   handleError(error, action) {
     console.error(`Supabase error while ${action}:`, error);
     if (error.code === '42501') {
-      toast('Supabase RLS active: Sign in or run the SQL policies.');
+      toast('Supabase RLS: Sign in or run supabase-setup.sql policies.');
     } else {
       toast(`Supabase: ${error.message || 'Error ' + action}`);
     }
@@ -707,26 +1250,48 @@ class HanamiSupabaseSync {
 
   openAuthModal() {
     if (this.user) {
-      // If logged in, clicking avatar/cloud shows profile & logout
       const modal = document.getElementById('supabaseModal');
       if (!modal) return;
       modal.style.display = 'flex';
       const box = document.getElementById('sbModalBody');
       if (box) {
-        const name = this.user.user_metadata?.nickname || this.user.user_metadata?.name || this.user.email;
+        const name = this.user.user_metadata?.nickname || this.user.user_metadata?.name || this.user.email.split('@')[0];
+        const role = this.userRole || this.user.user_metadata?.role || 'owner';
+        const roleDesc = {
+          owner: '👑 Owner: Manage campaigns, invite collaborators, edit all leads.',
+          collaborator: '🤝 Collaborator: Add and work on assigned campaign leads.',
+          viewer: '👀 Viewer: Read-only access to campaign progress and leads.'
+        }[role] || 'Member';
+
+        const { url } = getSupabaseConfig();
+        const shortUrl = url.replace('https://', '').split('.')[0];
+
         box.innerHTML = `
-          <div style="margin-bottom:14px">
-            <div class="meta">Signed in as</div>
-            <b style="font-size:16px;color:var(--ink)">${name}</b>
-            <div class="meta" style="margin-top:2px">${this.user.email}</div>
+          <div style="margin-bottom:16px;padding:14px;background:var(--field);border-radius:12px;border:1px solid var(--line)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <b style="font-size:16px;color:var(--ink)">${name}</b>
+                <div class="meta" style="margin-top:2px;font-size:12.5px">${this.user.email}</div>
+              </div>
+              <span class="role-badge role-${role}">${role.toUpperCase()}</span>
+            </div>
+            <div style="font-size:12px;color:var(--mute);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)">
+              ${roleDesc}
+            </div>
           </div>
-          <div class="row" style="margin-top:16px">
-            <button class="btn" id="sbSignOutBtn">Log out</button>
+
+          <div style="font-size:11.5px;color:var(--mute);margin-bottom:16px">
+            <div><b>Cloud Project:</b> <code>${shortUrl}</code></div>
+            <div><b>Account ID:</b> <code>${this.user.id.slice(0, 8)}…</code></div>
+          </div>
+
+          <div class="row" style="margin-top:16px;justify-content:space-between">
+            <button class="btn" id="sbSignOutBtn" style="background:var(--red);border-color:var(--red);color:#fff">Log out</button>
             <button class="sm" id="sbCloseBtn">Close</button>
           </div>
         `;
+
         document.getElementById('sbSignOutBtn').onclick = () => {
-          this.closeAuthModal();
           this.signOut();
         };
         document.getElementById('sbCloseBtn').onclick = () => this.closeAuthModal();

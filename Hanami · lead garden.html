@@ -88,6 +88,7 @@ label{font-size:12px;color:var(--mute);display:block;margin-bottom:3px}
 #addForm{display:none}#addForm.on{display:block}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .empty{text-align:center;color:var(--mute);padding:30px 10px}
+.sheet-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-top:12px}.sheet{border-collapse:collapse;width:100%;min-width:850px;text-align:left}.sheet th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);background:var(--field);position:sticky;top:0;padding:10px 12px;border-bottom:1px solid var(--line)}.sheet td{padding:8px 12px;border-bottom:1px solid var(--line);max-width:250px}.sheet tr:last-child td{border-bottom:0}.sheet td input,.sheet td select{min-width:120px;padding:6px 8px}.sheet td a{color:var(--pinkd)}.country-head{padding:10px 12px;background:var(--pinkl);font-weight:650;display:flex;justify-content:space-between}.camp-card{display:flex;align-items:center;gap:12px}.camp-card .grow{flex:1;min-width:0}
 .cr{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
 .log{font-size:12px;color:var(--mute);margin-top:6px}
 #foot{margin-top:28px;font-size:12px;color:var(--mute)}
@@ -130,18 +131,27 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
 
 /* auth page */
 .auth-wrap{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:18px;overflow-y:auto}
-.auth-card{width:100%;max-width:410px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:30px 26px;box-shadow:0 18px 48px rgba(0,0,0,.26)}
-.auth-tab{flex:1;border:0;background:none;color:var(--mute);padding:8px 12px;font-weight:600;font-size:13.5px;border-radius:8px;cursor:pointer;transition:all .15s}
+.auth-card{width:100%;max-width:440px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:28px 24px;box-shadow:0 18px 48px rgba(0,0,0,.26)}
+.auth-tab{flex:1;border:0;background:none;color:var(--mute);padding:8px 8px;font-weight:600;font-size:12.5px;border-radius:8px;cursor:pointer;transition:all .15s;text-align:center}
 .auth-tab.on{background:var(--card);color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.12)}
 .banner.err{background:var(--redl);color:var(--red);border-color:color-mix(in srgb,var(--red) 30%,transparent)}
 .banner.ok{background:var(--leafl);color:var(--leaf);border-color:color-mix(in srgb,var(--leaf) 30%,transparent)}
+.pw-box{position:relative;display:flex;align-items:center}
+.pw-box input{width:100%;padding-right:38px}
+.pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--mute);cursor:pointer;padding:4px;display:inline-flex;align-items:center;font-size:14px;border-radius:4px}
+.pw-toggle:hover{color:var(--ink);background:var(--field)}
+.role-badge{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;padding:3px 8px;border-radius:12px;vertical-align:middle;display:inline-flex;align-items:center}
+.role-owner{background:var(--bluel);color:var(--blue);border:1px solid color-mix(in srgb,var(--blue) 35%,transparent)}
+.role-collaborator{background:var(--leafl);color:var(--leaf);border:1px solid color-mix(in srgb,var(--leaf) 35%,transparent)}
+.role-viewer{background:var(--warnl);color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
+.role-guest{background:var(--field);color:var(--mute);border:1px solid var(--line)}
 
 </style>
 </head>
 <body>
 <div id="petals" aria-hidden="true"></div>
 
-<!-- Login / Sign-up Screen -->
+<!-- Login / Sign-up / Multi-User Screen -->
 <div id="authPage" class="auth-wrap">
   <div class="auth-card">
     <div style="text-align:center;margin-bottom:18px">
@@ -150,9 +160,11 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
       <p class="meta" style="margin:0;font-size:13px">Lead garden · Prospecting &amp; outreach CRM</p>
     </div>
 
-    <div style="display:flex;background:var(--field);padding:4px;border-radius:10px;margin-bottom:18px;border:1px solid var(--line)">
+    <!-- Auth Tabs -->
+    <div style="display:flex;background:var(--field);padding:4px;border-radius:10px;margin-bottom:16px;border:1px solid var(--line);gap:2px">
       <button type="button" class="auth-tab on" id="tabSignInBtn">Sign In</button>
       <button type="button" class="auth-tab" id="tabSignUpBtn">Create Account</button>
+      <button type="button" class="auth-tab" id="tabForgotBtn">Reset Password</button>
     </div>
 
     <div id="authAlert" class="banner" style="display:none;margin-bottom:14px;padding:10px 12px;font-size:13px"></div>
@@ -166,36 +178,109 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
       <div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <label for="loginPassword" style="font-size:12px;color:var(--mute)">Password</label>
+          <a href="#" id="linkForgot" style="font-size:11.5px;color:var(--mute);text-decoration:none">Forgot?</a>
         </div>
-        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" required>
+        <div class="pw-box">
+          <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" required>
+          <button type="button" class="pw-toggle" data-for="loginPassword" title="Toggle password visibility">👁️</button>
+        </div>
       </div>
       <button type="submit" class="btn" id="btnSignInSubmit" style="margin-top:6px;padding:10px 16px;font-size:14px;font-weight:600">
         Sign In to My Garden
       </button>
     </form>
 
-    <!-- Create Account Form -->
+    <!-- New accounts cannot choose an elevated role. -->
     <form id="signUpForm" style="display:none;flex-direction:column;gap:12px" onsubmit="return false;">
       <div>
         <label for="signupName" style="font-size:12px;color:var(--mute);margin-bottom:4px;display:block">Your Name or Nickname</label>
-        <input type="text" id="signupName" placeholder="e.g. Ash" autocomplete="name" required>
+        <input type="text" id="signupName" placeholder="e.g. Ash Ketchum" autocomplete="name" required>
       </div>
       <div>
         <label for="signupEmail" style="font-size:12px;color:var(--mute);margin-bottom:4px;display:block">Email address</label>
         <input type="email" id="signupEmail" placeholder="you@company.com" autocomplete="email" required>
       </div>
       <div>
-        <label for="signupPassword" style="font-size:12px;color:var(--mute);margin-bottom:4px;display:block">Password (at least 6 characters)</label>
-        <input type="password" id="signupPassword" placeholder="••••••••" minlength="6" autocomplete="new-password" required>
+        <label for="signupPassword" style="font-size:12px;color:var(--mute);margin-bottom:4px;display:block">Password (at least 12 characters)</label>
+        <div class="pw-box">
+          <input type="password" id="signupPassword" placeholder="At least 12 characters" minlength="12" autocomplete="new-password" required>
+          <button type="button" class="pw-toggle" data-for="signupPassword" title="Toggle password visibility">👁️</button>
+        </div>
       </div>
       <button type="submit" class="btn" id="btnSignUpSubmit" style="margin-top:6px;padding:10px 16px;font-size:14px;font-weight:600">
         Create Account &amp; Start Garden
       </button>
     </form>
 
-    <div style="text-align:center;margin-top:20px;border-top:1px dashed var(--line);padding-top:14px">
-      <button type="button" id="btnGuest" style="background:none;border:none;color:var(--mute);font-size:12px;cursor:pointer;text-decoration:underline">
-        Or continue as guest (saved on this device only)
+    <!-- Reset Password Form -->
+    <form id="forgotForm" style="display:none;flex-direction:column;gap:12px" onsubmit="return false;">
+      <div>
+        <label for="forgotEmail" style="font-size:12px;color:var(--mute);margin-bottom:4px;display:block">Your account email</label>
+        <input type="email" id="forgotEmail" placeholder="you@company.com" autocomplete="email" required>
+      </div>
+      <button type="submit" class="btn" id="btnForgotSubmit" style="margin-top:6px;padding:10px 16px;font-size:14px;font-weight:600">
+        Send Password Reset Link
+      </button>
+      <div style="text-align:center;margin-top:4px">
+        <a href="#" id="linkBackToSignIn" style="font-size:12px;color:var(--mute);text-decoration:underline">Back to Sign In</a>
+      </div>
+    </form>
+
+    <!-- Collaborator Invitation Acceptance Form (Triggered via ?invite=...) -->
+    <div id="acceptInviteCard" style="display:none;flex-direction:column;gap:12px">
+      <div style="background:var(--leafl);border:1px solid color-mix(in srgb,var(--leaf) 35%,transparent);color:var(--leaf);padding:10px 12px;border-radius:10px;font-size:13px;text-align:center">
+        🎉 <b>Team Invitation</b><br>
+        <span style="font-size:12px;color:var(--ink)">You were invited by <b id="invFromWho">Charchit</b> to collaborate in Hanami.</span>
+      </div>
+      <form id="acceptInviteForm" style="display:flex;flex-direction:column;gap:12px" onsubmit="return false;">
+        <div>
+          <label for="invAcceptName" style="font-size:12px;color:var(--mute);margin-bottom:4px;display:block">Your Name</label>
+          <input type="text" id="invAcceptName" placeholder="e.g. Alex" required>
+        </div>
+        <div>
+          <label for="invAcceptEmail" style="font-size:12px;color:var(--mute);margin-bottom:4px;display:block">Your Email</label>
+          <input type="email" id="invAcceptEmail" readonly style="opacity:0.85;background:var(--field);cursor:not-allowed">
+        </div>
+        <div>
+          <label for="invAcceptPassword" style="font-size:12px;color:var(--mute);margin-bottom:4px;display:block">Set Your Password (at least 12 characters)</label>
+          <div class="pw-box">
+            <input type="password" id="invAcceptPassword" placeholder="At least 12 characters" minlength="12" required>
+            <button type="button" class="pw-toggle" data-for="invAcceptPassword" title="Toggle password visibility">👁️</button>
+          </div>
+        </div>
+        <button type="submit" class="btn" id="btnAcceptInviteSubmit" style="margin-top:6px;padding:10px 16px;font-size:14px;font-weight:600">
+          Set Password &amp; Open Hanami
+        </button>
+      </form>
+    </div>
+
+    <p class="meta" style="margin-top:14px;text-align:center;font-size:12px">New accounts are collaborators. Ask the workspace admin for an invitation.</p>
+
+    <!-- Collapsible Supabase Project Connection Settings -->
+    <details id="supabaseConfigDetails" style="margin-top:16px;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:12px;background:var(--bg)">
+      <summary style="cursor:pointer;color:var(--mute);font-weight:600;display:flex;align-items:center;justify-content:space-between">
+        <span>⚙️ Supabase Project Settings</span>
+        <span style="font-size:11px;padding:2px 7px;border-radius:6px;background:var(--leafl);color:var(--leaf);font-weight:600">Connected</span>
+      </summary>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+        <div>
+          <label style="font-size:11px;color:var(--mute);display:block;margin-bottom:3px">Supabase URL</label>
+          <input type="text" id="cfgSbUrl" placeholder="https://xyz.supabase.co" style="font-size:12px;padding:7px 9px">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--mute);display:block;margin-bottom:3px">Anon / Publishable API Key</label>
+          <input type="text" id="cfgSbKey" placeholder="sb_publishable_... or eyJ..." style="font-size:12px;padding:7px 9px">
+        </div>
+        <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+          <button type="button" class="sm" id="btnTestSb" style="flex:1">Test Connection</button>
+          <button type="button" class="btn" id="btnSaveSb" style="flex:1;padding:6px 10px;font-size:12px">Save &amp; Reconnect</button>
+          <button type="button" class="sm" id="btnResetSb" title="Reset to defaults">Reset</button>
+        </div>
+        <div id="sbTestResult" style="display:none;font-size:11.5px;padding:7px 10px;border-radius:6px;margin-top:4px"></div>
+      </div>
+    </details>
+
+    <div style="text-align:center;margin-top:18px;border-top:1px dashed var(--line);padding-top:12px">
       </button>
     </div>
   </div>
@@ -208,6 +293,7 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
 <div class="sec">Customers</div>
 <button class="t ni" data-tab="today"><span class="ic" style="--icc:#5ec4ff"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="nl">Dashboard</span></button>
 <button class="t ni" data-tab="garden"><span class="ic" style="--icc:#9b96ff"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></span><span class="nl">Leads</span><span class="nb " id="nb-garden" style="display:none"></span></button>
+<button class="t ni" data-tab="campaigns"><span class="ic" style="--icc:#ff9fc4"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6M7 16h8"/></svg></span><span class="nl">Campaigns</span></button>
 <button class="t ni" data-tab="huts"><span class="ic" style="--icc:#e5b45c"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v11h14V10"/><path d="M10 21v-6h4v6"/></svg></span><span class="nl">Huts</span><span class="nb w" id="nb-huts" style="display:none"></span></button>
 <div class="sec">Outreach</div>
 <button class="t ni" data-tab="plan"><span class="ic" style="--icc:#5fcf9a"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M8 14h2M12 14h2"/></svg></span><span class="nl">Call list</span><span class="nb r" id="nb-plan" style="display:none"></span></button>
@@ -223,17 +309,21 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
 <div class="main">
   <div class="topbar">
     <button class="ib" id="burger" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-    <div class="wsp"><span class="av2">H</span><span id="wsname">My garden</span></div>
+    <div class="wsp"><span class="av2">H</span><span id="wsname">My garden</span><span id="userRoleBadge" class="role-badge role-owner" style="display:none;margin-left:8px">Owner</span></div>
     <div class="gs"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></span><input id="gs" placeholder="Search leads and companies" autocomplete="off"><kbd>⌘K</kbd><div id="gsr"></div></div>
     <div class="tr">
       <span class="clk"><b id="clk"></b> <span id="hrs"></span></span>
       <button class="btn" id="addBtn">+ Add lead</button>
+      <button class="btn2" id="inviteBtn" style="display:inline-flex;align-items:center;gap:6px" title="Invite team collaborators">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        <span>Invite</span>
+      </button>
       <button class="btn2" id="clue">✦ <span>I’m feeling clueless</span></button>
       <button class="ib" id="bell" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="bb" id="bellb" style="display:none"></span></button>
       <button class="ib" id="supabaseBtn" title="Supabase Cloud Sync" aria-label="Supabase Cloud"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></button>
       <button class="ib" id="themeb" aria-label="Theme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg></button>
       <button class="sm" id="logoutBtn" title="Log out" style="display:none;font-size:12px;padding:6px 12px;border-radius:8px">Log out</button>
-      <span class="avt" id="avt">H</span>
+      <button class="avt" id="avt" title="Account profile &amp; roles" style="border:none;cursor:pointer">H</button>
     </div>
   </div>
   <div class="nbar" id="nbar" style="display:none"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></span><span>Enable desktop notifications to get nudges while Hanami is open.</span><span class="nbx"><button class="btn" id="nbOn">Enable</button><button class="sm" id="nbOff">Dismiss</button></span></div>
@@ -244,6 +334,9 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
     <div style="grid-column:1/-1"><label>LinkedIn link (paste it, I’ll find the name)</label><input id="f-link" placeholder="https://linkedin.com/in/…"></div>
     <div><label>Name</label><input id="f-name" placeholder="Auto from link"></div>
     <div><label>Role · Company</label><input id="f-role" placeholder="CHRO · Acme"></div>
+    <div><label>Email</label><input id="f-email" type="email" placeholder="name@company.com"></div>
+    <div><label>Phone</label><input id="f-phone" type="tel" placeholder="+1 555 123 4567"></div>
+    <div><label>Campaign</label><select id="f-campaign" required><option value="">Choose a campaign</option></select></div>
     <div><label>Country</label><select id="f-country"></select></div>
     <div><label>Status</label><select id="f-status"><option value="spotted">Spotted, not reached yet</option><option value="reached">Already reached out</option><option value="callback">They asked me to call back</option></select></div>
     <div><label>Follow up on (optional)</label><input id="f-due" type="datetime-local"></div>
@@ -261,6 +354,64 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
 </div>
 <div id="scrim"></div>
 <div id="qv"><div id="qbox" class="card"></div></div><div id="toast"></div><div id="undo"></div>
+<div id="inviteModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:95;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px">
+  <div class="card" style="max-width:480px;width:100%;margin:0;max-height:90vh;overflow:auto;border-radius:18px;padding:24px 26px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h2 style="font-size:18px;display:flex;align-items:center;gap:8px;margin:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        Invite Collaborator
+      </h2>
+      <button class="sm" id="closeInviteModal" aria-label="Close">✕</button>
+    </div>
+
+    <p class="meta" style="font-size:12.5px;margin:0 0 16px;line-height:1.45">
+      Hanami will email a secure invitation link that expires after seven days.
+    </p>
+
+    <form id="inviteForm" onsubmit="return false;" style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label for="invEmail" style="font-size:12px;color:var(--mute);display:block;margin-bottom:4px">Collaborator's Email</label>
+        <input type="email" id="invEmail" placeholder="colleague@peoplehum.com" required>
+      </div>
+
+      <div>
+        <label for="invRole" style="font-size:12px;color:var(--mute);display:block;margin-bottom:4px">Role</label>
+        <select id="invRole" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13px">
+          <option value="collaborator" selected>🤝 Collaborator / SDR (Can view, call, and update leads)</option>
+          <option value="viewer">👀 Viewer (Read-only access)</option>
+        </select>
+      </div>
+      <div><label for="invCampaign" style="font-size:12px;color:var(--mute);display:block;margin-bottom:4px">Campaign access</label><select id="invCampaign"><option value="">All campaigns (workspace)</option></select></div>
+
+      <button type="submit" class="btn" id="btnSendInvite" style="padding:10px 16px;font-size:13.5px;font-weight:600">
+        Send Invitation Email
+      </button>
+    </form>
+
+    <div id="inviteResult" style="display:none;margin-top:16px;padding:14px;background:var(--field);border-radius:12px;border:1px solid var(--line)">
+      <div style="font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:6px">✉️ Invitation Ready for <span id="invTargetEmail"></span></div>
+      <div style="font-size:11.5px;color:var(--mute);margin-bottom:10px">The invitation email was sent. You can also copy its link and share it directly:</div>
+
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <input type="text" id="invLinkInput" readonly style="font-size:11.5px;padding:7px 9px;background:var(--card);flex:1">
+        <button type="button" class="btn" id="btnCopyInviteLink" style="padding:7px 12px;font-size:12px;white-space:nowrap">Copy Link</button>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <a id="btnSendEmailDirect" href="#" target="_blank" class="sm" style="flex:1;text-align:center;text-decoration:none;padding:7px 10px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:5px">
+          📧 Open Email App
+        </a>
+      </div>
+    </div>
+
+    <!-- Active Collaborators / Sent Invitations List -->
+    <div style="margin-top:20px;border-top:1px dashed var(--line);padding-top:14px">
+      <div style="font-size:12px;font-weight:600;color:var(--mute);margin-bottom:8px">Invited Collaborators &amp; Team Members</div>
+      <div id="invList" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
 <div id="supabaseModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:90;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px">
   <div class="card" style="max-width:440px;width:100%;margin:0;max-height:90vh;overflow:auto;border-radius:16px;padding:22px 24px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -293,7 +444,7 @@ const C=[],FOCUS=['SE Asia','Africa','South Asia'],REGS=['SE Asia','Africa','Sou
 'Oceania|Australia=Australia/Sydney,Fiji=Pacific/Fiji,New Zealand=Pacific/Auckland,Papua New Guinea=Pacific/Port_Moresby,Samoa=Pacific/Apia,Solomon Islands=Pacific/Guadalcanal,Tonga=Pacific/Tongatapu,Vanuatu=Pacific/Efate').split(';').forEach(g=>{const[r,l]=g.split('|');l.split(',').forEach(p=>{const[n,z]=p.split('=');C.push([n,z,r])})});
 const ST={spotted:'Spotted',reached:'Reached out',callback:'Call back',demo:'Demo booked',handed:'Handed to AE',dropped:'Dropped'};
 const ACTIVE=['spotted','reached','callback'];
-let leads=[],tab='today',filt='active',q='',open=null,now=new Date(),mode='device',ref=null,col=null,snap=new Map(),reg='focus',planDay=null,game={xp:0,streak:0},skipped=new Set(),Q=null;
+let leads=[],campaigns=[],activeCampaignId='all',campaignNew=false,tab='today',filt='active',q='',open=null,now=new Date(),mode='device',ref=null,col=null,snap=new Map(),reg='focus',planDay=null,game={xp:0,streak:0},skipped=new Set(),Q=null;
 
 const e=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const $=id=>document.getElementById(id);
@@ -317,6 +468,7 @@ function save(){clearTimeout(tmr);tmr=setTimeout(async()=>{
 },300)}
 async function exportCsv(){try{const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const rows=[['Name','LinkedIn','Role','Country','Status','Next follow-up','Note']].concat(leads.map(l=>[l.name,l.link,l.role,l.country,ST[l.status],l.due,l.note]));const csvContent='data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.map(q).join(',')).join('\n'));const a=document.createElement('a');a.href=csvContent;a.download='hanami-leads.csv';document.body.appendChild(a);a.click();a.remove()}catch(x){toast('Export failed: '+x.message)}}
 async function init(){
+ try{campaigns=JSON.parse(localStorage.getItem('hanami_campaigns')||'[]')}catch(x){}
  try{cos=JSON.parse(localStorage.getItem('hanami_co')||'[]')}catch(x){}
  try{const g=JSON.parse(localStorage.getItem('hanami_game')||'null');if(g)game=g}catch(x){}
  try{leads=JSON.parse(localStorage.getItem('hanami')||'[]')}catch(x){}
@@ -418,9 +570,19 @@ function garden(){
  const fs=[['active','Active'],['spotted','Spotted'],['reached','Reached'],['callback','Call back'],['demo','Demos'],['handed','Handed off'],['dropped','Dropped']];
  let h='<input id="q" placeholder="Search name, company, note…" value="'+e(q)+'" style="margin-bottom:10px"><div class="chips">'+fs.map(f=>'<button class="sm'+(filt===f[0]?' p':'')+'" data-f="'+f[0]+'">'+f[1]+'</button>').join('')+'</div>';
  let a=leads.filter(l=>filt==='active'?ACTIVE.includes(l.status):l.status===filt);
- if(q){const s=q.toLowerCase();a=a.filter(l=>[l.name,l.role,l.note,l.next,l.country].join(' ').toLowerCase().includes(s))}
+ if(q){const s=q.toLowerCase();a=a.filter(l=>[l.name,l.role,l.note,l.next,l.country,l.email,l.phone,l.link].join(' ').toLowerCase().includes(s))}
  a.sort((x,y)=>(x.due?new Date(x.due):8e15)-(y.due?new Date(y.due):8e15));
- return h+(a.length?a.map(l=>card(l)).join(''):'<div class="empty">Nothing here yet.</div>')}
+ const scope='<div class="row" style="justify-content:space-between;margin-bottom:10px"><div><label for="campaignFilter">Campaign</label><select id="campaignFilter" style="min-width:220px"><option value="all">All campaigns</option><option value="none">Unassigned</option>'+campaigns.map(c=>'<option value="'+e(c.id)+'"'+(activeCampaignId===c.id?' selected':'')+'>'+e(c.name)+'</option>').join('')+'</select></div><button class="sm" data-tabgo="campaigns">Manage campaigns</button></div>';
+ a=a.filter(l=>activeCampaignId==='all'||(activeCampaignId==='none'?!l.campaignId:l.campaignId===activeCampaignId));
+ const groups={};a.forEach(l=>{const k=l.country||'No country';(groups[k]=groups[k]||[]).push(l)});
+ const sheet=Object.keys(groups).sort((x,y)=>x.localeCompare(y)).map(country=>'<div class="country-head"><span>'+e(country)+'</span><span>'+groups[country].length+' leads</span></div><table class="sheet"><thead><tr><th>Name</th><th>Phone</th><th>LinkedIn</th><th>Email</th><th>Campaign</th><th>Role · Company</th><th>Status</th></tr></thead><tbody>'+groups[country].map(l=>'<tr><td><input aria-label="Lead name" data-cell="name" data-id="'+e(l.id)+'" value="'+e(l.name)+'"></td><td><input aria-label="Phone" data-cell="phone" data-id="'+e(l.id)+'" value="'+e(l.phone||'')+'" placeholder="Add phone"></td><td><input aria-label="LinkedIn URL" data-cell="link" data-id="'+e(l.id)+'" value="'+e(l.link||'')+'" placeholder="LinkedIn profile URL"></td><td><input aria-label="Email" data-cell="email" data-id="'+e(l.id)+'" value="'+e(l.email||'')+'" placeholder="Add email"></td><td><select aria-label="Campaign" data-cell="campaignId" data-id="'+e(l.id)+'">'+campaigns.map(c=>'<option value="'+e(c.id)+'"'+(c.id===l.campaignId?' selected':'')+'>'+e(c.name)+'</option>').join('')+'</select></td><td>'+e(l.role||'')+'</td><td>'+e(ST[l.status]||'Spotted')+'</td></tr>').join('')+'</tbody></table>').join('');
+ return scope+'<div class="meta">A compact contact sheet grouped by country. Click a cell to update contact details.</div><div class="sheet-wrap">'+(sheet||'<div class="empty">No leads match this view.</div>')+'</div>'}
+
+function campaignsView(){let h='<div class="cr"><div><h2>Campaigns</h2><div class="meta">Keep different types of prospecting work in separate spaces.</div></div><button class="btn" data-camp="new">+ New campaign</button></div>';
+ if(campaignNew)h+='<div class="card" style="margin-top:12px"><div class="grid"><div><label>Campaign name</label><input id="campName" placeholder="e.g. India HR leaders"></div><div><label>What is this work about?</label><input id="campDescription" placeholder="Audience, region, or goal"></div></div><div class="row" style="margin-top:10px"><button class="btn" data-camp="save">Create campaign</button><button class="sm" data-camp="cancel">Cancel</button></div></div>';
+ h+='<div class="chips" style="margin-top:14px"><button class="sm'+(activeCampaignId==='all'?' p':'')+'" data-campfilter="all">All leads</button><button class="sm'+(activeCampaignId==='none'?' p':'')+'" data-campfilter="none">Unassigned leads</button></div>';
+ if(!campaigns.length)return h+'<div class="empty">No campaigns yet. Create one to start a separate workspace.</div>';
+ return h+campaigns.map(c=>'<div class="card camp-card"><div class="grow"><div class="name">'+e(c.name)+'</div><div class="meta">'+e(c.description||'')+' · '+leads.filter(l=>l.campaignId===c.id).length+' leads</div></div><button class="sm p" data-camp="open" data-id="'+e(c.id)+'">Open leads</button></div>').join('')}
 
 function where(){
  const mine=lmin(IST,now),inH=mine>=600&&mine<1080;
@@ -435,7 +597,8 @@ function render(){
  $('clk').textContent=new Date().toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit',timeZone:IST})+' IST';
  const m=lmin(IST,now);$('hrs').textContent=(m>=600&&m<1080)?'In your shift (10–6)':'Outside shift (10–6)';
  const a=document.activeElement,hadQ=a&&a.id==='q';
- $('view').innerHTML=tab==='today'?today():tab==='plan'?plan():tab==='orchard'?orchard():tab==='world'?'':tab==='board'?boardView():tab==='huts'?hutsView():tab==='garden'?garden():where();
+ $('view').innerHTML=tab==='today'?today():tab==='plan'?plan():tab==='orchard'?orchard():tab==='world'?'':tab==='board'?boardView():tab==='huts'?hutsView():tab==='campaigns'?campaignsView():tab==='garden'?garden():where();
+ const campaignField=$('f-campaign');if(campaignField){const previous=campaignField.value;campaignField.innerHTML='<option value="">Choose a campaign</option>'+campaigns.map(c=>'<option value="'+e(c.id)+'">'+e(c.name)+'</option>').join('');campaignField.value=campaigns.some(c=>c.id===activeCampaignId)?activeCampaignId:(campaigns.some(c=>c.id===previous)?previous:'')}
  if(hadQ){const i=$('q');i.focus();i.setSelectionRange(i.value.length,i.value.length)}
  worldSync();renderHud();renderNav();if(Q&&Q.kind==='view'&&$('qv').classList.contains('on'))renderQ();
  document.querySelectorAll('nav .t').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
@@ -444,7 +607,7 @@ function render(){
 
 /* events */
 const find=id=>leads.find(l=>l.id===id);
-document.addEventListener('click',ev=>{
+document.addEventListener('click',async ev=>{
  const t=ev.target.closest('button');if(!t)return;
  if(t.id==='supabaseBtn'||t.id==='avt'){if(window.HanamiSupabase)window.HanamiSupabase.openAuthModal();return}
  if(t.id==='logoutBtn'){if(window.HanamiSupabase)window.HanamiSupabase.signOut();return}
@@ -464,6 +627,9 @@ document.addEventListener('click',ev=>{
  if(t.dataset.p){const l=find(t.dataset.p);if(l)qshow(ACTIVE.includes(l.status)?qfor(l):{l,kind:'view',phase:'do'});return}
  if(t.dataset.addc){$('addForm').classList.add('on');$('f-country').value=t.dataset.addc;window.scrollTo(0,0);return}
  if(t.dataset.q)return qclick(t);
+ if(t.dataset.tabgo){tab=t.dataset.tabgo;return render()}
+ if(t.dataset.camp){if(t.dataset.camp==='new'){campaignNew=true;return render()}if(t.dataset.camp==='cancel'){campaignNew=false;return render()}if(t.dataset.camp==='open'){activeCampaignId=t.dataset.id;tab='garden';return render()}if(t.dataset.camp==='save'){const name=$('campName').value.trim();if(!name){$('campName').focus();return}const c={id:uid(),name,description:$('campDescription').value.trim(),status:'active',created_at:new Date().toISOString()};campaigns.unshift(c);try{localStorage.setItem('hanami_campaigns',JSON.stringify(campaigns))}catch(x){}campaignNew=false;if(window.HanamiSupabase)await window.HanamiSupabase.saveCampaign(c);activeCampaignId=c.id;tab='garden';return render()}}
+ if(t.dataset.campfilter){activeCampaignId=t.dataset.campfilter;return render()}
  if(t.dataset.tab){tab=t.dataset.tab;return render()}
  if(t.dataset.f){filt=t.dataset.f;return render()}
  if(t.dataset.r){reg=t.dataset.r;return render()}
@@ -494,6 +660,7 @@ document.addEventListener('click',ev=>{
  else if(a==='close'){open=null}
  save();render()});
 document.addEventListener('input',ev=>{if(ev.target.id==='q'){q=ev.target.value;render()}});
+document.addEventListener('change',ev=>{const x=ev.target;if(x.id==='campaignFilter'){activeCampaignId=x.value;render();return}if(x.dataset.cell){const l=find(x.dataset.id);if(!l)return;l[x.dataset.cell]=x.value.trim();save()}});
 
 $('addBtn').onclick=()=>$('addForm').classList.toggle('on');
 $('cancelAdd').onclick=()=>$('addForm').classList.remove('on');
@@ -503,10 +670,11 @@ $('f-name').addEventListener('input',()=>{$('f-name').dataset.touched='1'});
 $('saveLead').onclick=()=>{
  const link=$('f-link').value.trim(),name=($('f-name').value.trim()||nameFrom(link)||'Unnamed profile');
  if(!link&&!$('f-name').value.trim()){$('f-link').focus();return}
- const l={id:uid(),name,link,role:$('f-role').value.trim(),country:$('f-country').value,status:$('f-status').value,due:$('f-due').value,note:$('f-note').value.trim(),next:$('f-next').value.trim(),hot:!!$('f-hot').value,created:Date.now(),log:[]};
+ if(!$('f-campaign').value){$('f-campaign').focus();toast('Choose a campaign for this lead');return}
+ const l={id:uid(),name,link,phone:$('f-phone').value.trim(),email:$('f-email').value.trim(),role:$('f-role').value.trim(),country:$('f-country').value,status:$('f-status').value,due:$('f-due').value,note:$('f-note').value.trim(),next:$('f-next').value.trim(),hot:!!$('f-hot').value,campaignId:$('f-campaign').value,created:Date.now(),log:[]};
  logIt(l,'Added as '+ST[l.status].toLowerCase());
  leads.unshift(l);stat('s');award(4,'New lead planted');
- ['f-link','f-name','f-role','f-due','f-note','f-next'].forEach(i=>$(i).value='');$('f-hot').value='';delete $('f-name').dataset.touched;$('f-country').value='';$('f-status').value='spotted';
+ ['f-link','f-name','f-role','f-email','f-phone','f-due','f-note','f-next'].forEach(i=>$(i).value='');$('f-hot').value='';delete $('f-name').dataset.touched;$('f-country').value='';$('f-status').value='spotted';
  $('addForm').classList.remove('on');tab='today';save();render()};
 
 /* game */
