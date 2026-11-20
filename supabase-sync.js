@@ -452,13 +452,6 @@ class HanamiSupabaseSync {
 
         if (btn) { btn.disabled = true; btn.textContent = 'Joining garden…'; }
 
-        const invitation = await this.client.from('invitations').select('id, role, expires_at').eq('token', token).eq('email', userEmail.toLowerCase()).eq('status', 'pending').maybeSingle();
-        if (invitation.error || !invitation.data || new Date(invitation.data.expires_at) < new Date()) {
-          this.setAuthAlert('This invitation is invalid or expired. Ask an admin to send a new one.', true);
-          if (btn) { btn.disabled = false; btn.textContent = 'Set Password & View All Leads'; }
-          return;
-        }
-        const invitedRole = invitation.data.role;
         // An invitation may be opened in the owner's already-authenticated browser.
         // Clear that different account before signup so the existing session cannot
         // be mistaken for the invited collaborator's session.
@@ -469,7 +462,9 @@ class HanamiSupabaseSync {
         }
 
         // 1. Create an account for the invited email using the server-stored role.
-        let authRes = await this.signUp(userEmail, pass, name, invitedRole, token);
+        // The database signup trigger validates this token and applies the invited
+        // role. Read access to invitations is intentionally limited to authenticated users.
+        let authRes = await this.signUp(userEmail, pass, name, 'collaborator', token);
 
         if (!authRes.error && authRes.data?.user && !authRes.data?.session) {
           this.setAuthAlert('Account created. Check your email to verify it, then sign in.', false, true);
@@ -498,23 +493,31 @@ class HanamiSupabaseSync {
         } else {
           // Success! User is authenticated
           const curUser = (await this.client?.auth.getUser())?.data?.user || authRes.data?.user;
-          if (curUser) {
-            this.user = curUser;
-          } else {
-            this.user = {
-              id: 'collab-' + Math.random().toString(36).slice(2, 7),
-              email: userEmail,
-              user_metadata: { name, nickname: name, role: 'collaborator' }
-            };
+          if (!curUser || curUser.email?.toLowerCase() !== userEmail.toLowerCase()) {
+            this.setAuthAlert('The signed-in account does not match this invitation. Sign in with the invited email.', true);
+            return;
           }
-          this.userRole = invitedRole;
+          this.user = curUser;
+
+          // Only read the invitation after authentication, when its email-bound
+          // RLS policy permits the invited user to see it.
+          const invitation = await this.client.from('invitations').select('id, role, expires_at, status')
+            .eq('token', token).eq('email', userEmail.toLowerCase()).in('status', ['pending', 'accepted']).maybeSingle();
+          if (invitation.error || !invitation.data || (invitation.data.status === 'pending' && new Date(invitation.data.expires_at) < new Date())) {
+            this.setAuthAlert('This invitation is invalid or expired. Ask an admin to send a new one.', true);
+            return;
+          }
+          this.userRole = invitation.data.role;
           this.isGuest = false;
 
-          try {
-            if (this.client) {
-              await this.client.from('invitations').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', invitation.data.id);
+          if (invitation.data.status === 'pending') {
+            const { error: acceptError } = await this.client.from('invitations')
+              .update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('id', invitation.data.id);
+            if (acceptError) {
+              this.setAuthAlert('Your account is signed in, but the invitation could not be accepted. Ask the admin to resend it.', true);
+              return;
             }
-          } catch(err){}
+          }
 
           // Clean URL
           window.history.replaceState(null, '', window.location.pathname);
