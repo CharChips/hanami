@@ -226,6 +226,17 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
       </div>
     </form>
 
+    <form id="passwordRecoveryForm" style="display:none;flex-direction:column;gap:12px" onsubmit="return false;">
+      <div>
+        <h2 style="font-size:18px;margin:0 0 4px">Choose a new password</h2>
+        <p class="meta" style="margin:0;font-size:12px">Use at least 12 characters. After saving, you’ll be signed in.</p>
+      </div>
+      <div><label for="recoveryPassword">New password</label><input id="recoveryPassword" type="password" autocomplete="new-password" minlength="12" required></div>
+      <div><label for="recoveryPasswordConfirm">Confirm new password</label><input id="recoveryPasswordConfirm" type="password" autocomplete="new-password" minlength="12" required></div>
+      <button type="submit" class="btn" id="btnSaveNewPassword">Save new password</button>
+      <button type="button" class="sm" id="btnBackFromRecovery">Back to sign in</button>
+    </form>
+
     <!-- Collaborator Invitation Acceptance Form (Triggered via ?invite=...) -->
     <div id="acceptInviteCard" style="display:none;flex-direction:column;gap:12px">
       <div style="background:var(--leafl);border:1px solid color-mix(in srgb,var(--leaf) 35%,transparent);color:var(--leaf);padding:10px 12px;border-radius:10px;font-size:13px;text-align:center">

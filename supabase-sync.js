@@ -57,6 +57,41 @@ class HanamiSupabaseSync {
       this.client = window.supabase.createClient(url, key);
       this.bindAuthUI();
       this.bindInviteUI();
+      const recoveryHash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const recoveryQuery = new URLSearchParams(window.location.search);
+      this.recoveryMode = recoveryHash.get('type') === 'recovery' || recoveryQuery.get('type') === 'recovery';
+
+      // Register before getSession so a recovery callback cannot be missed during initialization.
+      this.client.auth.onAuthStateChange(async (event, newSession) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          this.recoveryMode = true;
+          this.user = newSession?.user || this.user;
+          this.showPasswordRecoveryPage();
+        } else if (event === 'SIGNED_IN' && newSession) {
+          this.user = newSession.user;
+          this.userRole = 'collaborator';
+          this.isGuest = false;
+          if (this.recoveryMode) {
+            this.showPasswordRecoveryPage();
+            return;
+          }
+          this.showApp();
+          toast('Welcome, ' + (this.user.user_metadata?.nickname || this.user.user_metadata?.name || this.user.email));
+          await this.loadAll();
+        } else if (event === 'SIGNED_OUT') {
+          this.user = null;
+          this.userRole = 'owner';
+          this.isGuest = false;
+          this.recoveryMode = false;
+          leads = [];
+          cos = [];
+          game = { xp: 0, streak: 0 };
+          this.leadSnap.clear();
+          this.companySnap.clear();
+          this.showAuthPage();
+          if (typeof render === 'function') render();
+        }
+      });
 
       // Check if URL contains an invitation link (?invite=TOKEN)
       if (this.checkInviteUrl()) {
@@ -69,41 +104,27 @@ class HanamiSupabaseSync {
 
       // Check existing Supabase session
       const { data: { session }, error: sessionError } = await this.client.auth.getSession();
-      
+
       if (!sessionError && session && session.user) {
         this.user = session.user;
         this.userRole = 'collaborator';
-        this.showApp();
-        await this.detectCapabilities();
-        await this.loadAll();
+        if (this.recoveryMode) {
+          this.showPasswordRecoveryPage();
+        } else {
+          this.showApp();
+          await this.detectCapabilities();
+          await this.loadAll();
+        }
       } else {
         // No active session: show login screen
-        this.showAuthPage();
+        if (this.recoveryMode) {
+          this.showPasswordRecoveryPage();
+          this.setAuthAlert('This reset link may have expired. Request a fresh link and open the newest email.', true);
+        } else {
+          this.showAuthPage();
+        }
         await this.detectCapabilities();
       }
-
-      // Listen for auth state changes
-      this.client.auth.onAuthStateChange(async (event, newSession) => {
-        if (event === 'SIGNED_IN' && newSession) {
-          this.user = newSession.user;
-          this.userRole = 'collaborator';
-          this.isGuest = false;
-          this.showApp();
-          toast('Welcome, ' + (this.user.user_metadata?.nickname || this.user.user_metadata?.name || this.user.email));
-          await this.loadAll();
-        } else if (event === 'SIGNED_OUT') {
-          this.user = null;
-          this.userRole = 'owner';
-          this.isGuest = false;
-          leads = [];
-          cos = [];
-          game = { xp: 0, streak: 0 };
-          this.leadSnap.clear();
-          this.companySnap.clear();
-          this.showAuthPage();
-          if (typeof render === 'function') render();
-        }
-      });
 
       // Subscribe to Realtime database changes
       this.subscribeRealtime();
@@ -130,11 +151,12 @@ class HanamiSupabaseSync {
     const formIn = document.getElementById('signInForm');
     const formUp = document.getElementById('signUpForm');
     const formForgot = document.getElementById('forgotForm');
+    const formRecovery = document.getElementById('passwordRecoveryForm');
     const alertBox = document.getElementById('authAlert');
 
     const switchTab = (activeTab, activeForm) => {
       [tabIn, tabUp, tabForgot].forEach(t => t && t.classList.remove('on'));
-      [formIn, formUp, formForgot].forEach(f => f && (f.style.display = 'none'));
+      [formIn, formUp, formForgot, formRecovery].forEach(f => f && (f.style.display = 'none'));
       if (activeTab) activeTab.classList.add('on');
       if (activeForm) activeForm.style.display = 'flex';
       if (alertBox) alertBox.style.display = 'none';
@@ -326,6 +348,50 @@ class HanamiSupabaseSync {
         }
       };
     }
+
+    if (formRecovery) {
+      formRecovery.onsubmit = async (e) => {
+        e.preventDefault();
+        const password = document.getElementById('recoveryPassword')?.value || '';
+        const confirm = document.getElementById('recoveryPasswordConfirm')?.value || '';
+        const btn = document.getElementById('btnSaveNewPassword');
+        if (password.length < 12) {
+          this.setAuthAlert('Choose a password with at least 12 characters.', true);
+          return;
+        }
+        if (password !== confirm) {
+          this.setAuthAlert('The passwords do not match. Please check both fields.', true);
+          return;
+        }
+        if (btn) { btn.disabled = true; btn.textContent = 'Saving password…'; }
+        this.setAuthAlert('', false);
+        const { data, error } = await this.client.auth.updateUser({ password });
+        if (btn) { btn.disabled = false; btn.textContent = 'Save new password'; }
+        if (error) {
+          this.setAuthAlert(error.message || 'Could not update your password. Request a new reset link and try again.', true);
+          return;
+        }
+        this.user = data?.user || this.user;
+        this.recoveryMode = false;
+        window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+        document.getElementById('recoveryPassword').value = '';
+        document.getElementById('recoveryPasswordConfirm').value = '';
+        this.showApp();
+        await this.detectCapabilities();
+        await this.loadAll();
+        toast('Password updated. You are now signed in.');
+      };
+    }
+    document.getElementById('btnBackFromRecovery')?.addEventListener('click', async () => {
+      this.recoveryMode = false;
+      try { await this.client.auth.signOut(); } catch (e) {}
+      window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+      const tabs = document.querySelector('#authPage .auth-tab')?.parentElement;
+      if (tabs) tabs.style.display = 'flex';
+      if (formRecovery) formRecovery.style.display = 'none';
+      if (tabIn) tabIn.click();
+      this.showAuthPage();
+    });
 
     ['btnQuickOwner','btnQuickCollab','btnQuickViewer','btnGuest'].forEach(id => document.getElementById(id)?.remove());
 
@@ -601,6 +667,23 @@ class HanamiSupabaseSync {
     const authPage = document.getElementById('authPage');
     const app = document.getElementById('app');
     const logoutBtn = document.getElementById('logoutBtn');
+    if (authPage) authPage.style.display = 'flex';
+    if (app) app.style.display = 'none';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+  }
+
+  showPasswordRecoveryPage() {
+    const authPage = document.getElementById('authPage');
+    const app = document.getElementById('app');
+    const tabs = document.querySelector('#authPage .auth-tab')?.parentElement;
+    const logoutBtn = document.getElementById('logoutBtn');
+    ['signInForm', 'signUpForm', 'forgotForm', 'acceptInviteCard'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    if (tabs) tabs.style.display = 'none';
+    const form = document.getElementById('passwordRecoveryForm');
+    if (form) form.style.display = 'flex';
     if (authPage) authPage.style.display = 'flex';
     if (app) app.style.display = 'none';
     if (logoutBtn) logoutBtn.style.display = 'none';
@@ -1169,7 +1252,7 @@ class HanamiSupabaseSync {
       if (msg.toLowerCase().includes('email not confirmed')) {
         res.error.friendly = 'Email not confirmed. Check your inbox for the verification link, then sign in.';
       } else if (msg.toLowerCase().includes('invalid login credentials')) {
-        res.error.friendly = '⚠️ Invalid login credentials. If you haven’t created an account yet, click "Create Account" above or use a ⚡ 1-Click Test account!';
+        res.error.friendly = 'That email and password did not match. If you requested a reset, open the latest email, choose a new password, then sign in with it.';
       }
     }
     return res;
@@ -1209,7 +1292,7 @@ class HanamiSupabaseSync {
   async resetPassword(email) {
     if (!this.client) return { error: { message: 'Supabase client not initialized' } };
     return await this.client.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.href
+      redirectTo: window.location.origin + window.location.pathname
     });
   }
 
