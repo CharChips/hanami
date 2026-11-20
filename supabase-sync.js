@@ -422,6 +422,7 @@ class HanamiSupabaseSync {
     const whoSpan = document.getElementById('invFromWho');
     const emailInput = document.getElementById('invAcceptEmail');
     const form = document.getElementById('acceptInviteForm');
+    const resendConfirmationBtn = document.getElementById('btnResendInviteConfirmation');
 
     if (tabs) tabs.style.display = 'none';
     if (signInForm) signInForm.style.display = 'none';
@@ -431,6 +432,27 @@ class HanamiSupabaseSync {
     if (card) card.style.display = 'flex';
     if (whoSpan) whoSpan.textContent = from;
     if (emailInput) emailInput.value = email;
+
+    if (resendConfirmationBtn) {
+      resendConfirmationBtn.style.display = 'none';
+      resendConfirmationBtn.onclick = async () => {
+        resendConfirmationBtn.disabled = true;
+        resendConfirmationBtn.textContent = 'Sending…';
+        const redirectTo = `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+        const { error } = await this.client.auth.resend({
+          type: 'signup',
+          email,
+          options: { emailRedirectTo: redirectTo }
+        });
+        resendConfirmationBtn.disabled = false;
+        resendConfirmationBtn.textContent = 'Resend verification email';
+        if (error) {
+          this.setAuthAlert(error.message || 'Could not resend the verification email.', true);
+        } else {
+          this.setAuthAlert('Verification email sent. Check your inbox and spam folder.', false, true);
+        }
+      };
+    }
 
     if (form) {
       form.onsubmit = async (e) => {
@@ -468,6 +490,7 @@ class HanamiSupabaseSync {
 
         if (!authRes.error && authRes.data?.user && !authRes.data?.session) {
           this.setAuthAlert('Account created. Check your email to verify it, then sign in.', false, true);
+          if (resendConfirmationBtn) resendConfirmationBtn.style.display = 'block';
           if (btn) { btn.disabled = false; btn.textContent = 'Set Password & View All Leads'; }
           return;
         }
