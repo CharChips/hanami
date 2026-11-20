@@ -459,6 +459,15 @@ class HanamiSupabaseSync {
           return;
         }
         const invitedRole = invitation.data.role;
+        // An invitation may be opened in the owner's already-authenticated browser.
+        // Clear that different account before signup so the existing session cannot
+        // be mistaken for the invited collaborator's session.
+        const currentSession = (await this.client.auth.getSession())?.data?.session;
+        if (currentSession?.user?.email?.toLowerCase() !== userEmail.toLowerCase()) {
+          await this.client.auth.signOut({ scope: 'local' });
+          this.user = null;
+        }
+
         // 1. Create an account for the invited email using the server-stored role.
         let authRes = await this.signUp(userEmail, pass, name, invitedRole, token);
 
@@ -474,7 +483,9 @@ class HanamiSupabaseSync {
         }
 
         // 3. If signed up successfully but session not established, sign in
-        if (!authRes.error && (!this.client || !(await this.client.auth.getSession())?.data?.session)) {
+        const activeSession = this.client ? (await this.client.auth.getSession())?.data?.session : null;
+        if (!authRes.error && activeSession?.user?.email?.toLowerCase() !== userEmail.toLowerCase()) {
+          if (activeSession) await this.client.auth.signOut({ scope: 'local' });
           authRes = await this.signIn(userEmail, pass);
         }
 
@@ -1269,7 +1280,10 @@ class HanamiSupabaseSync {
           nickname: name,
           role: email.toLowerCase() === 'charchit.sahoo@peoplehum.com' ? 'owner' : role,
           invite_token: inviteToken
-        }
+        },
+        ...(inviteToken ? {
+          emailRedirectTo: `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(inviteToken)}&email=${encodeURIComponent(email)}`
+        } : {})
       }
     });
 
