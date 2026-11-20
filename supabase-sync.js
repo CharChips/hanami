@@ -487,6 +487,7 @@ class HanamiSupabaseSync {
         // The database signup trigger validates this token and applies the invited
         // role. Read access to invitations is intentionally limited to authenticated users.
         let authRes = await this.signUp(userEmail, pass, name, 'collaborator', token);
+        const createdNewAccount = !authRes.error && Boolean(authRes.data?.user);
 
         if (!authRes.error && authRes.data?.user && !authRes.data?.session) {
           this.setAuthAlert('Account created. Check your email to verify it, then sign in.', false, true);
@@ -549,6 +550,25 @@ class HanamiSupabaseSync {
 
           // Clean URL
           window.history.replaceState(null, '', window.location.pathname);
+
+          if (createdNewAccount) {
+            // The invite link already proved mailbox access. Let the collaborator
+            // sign in explicitly after setting their password, without a second
+            // confirmation email.
+            await this.client.auth.signOut({ scope: 'local' });
+            const tabs = document.querySelector('#authPage .auth-tab')?.parentElement;
+            const acceptCard = document.getElementById('acceptInviteCard');
+            const resendBtn = document.getElementById('btnResendInviteConfirmation');
+            if (tabs) tabs.style.display = 'flex';
+            if (acceptCard) acceptCard.style.display = 'none';
+            if (resendBtn) resendBtn.style.display = 'none';
+            document.getElementById('tabSignInBtn')?.click();
+            this.showAuthPage();
+            const loginEmail = document.getElementById('loginEmail');
+            if (loginEmail) loginEmail.value = userEmail;
+            this.setAuthAlert('Your account is ready. Sign in with your email and password.', false, true);
+            return;
+          }
 
           // Show the app and load all leads!
           this.showApp();
