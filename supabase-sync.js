@@ -511,6 +511,11 @@ class HanamiSupabaseSync {
 
         if (authRes.error) {
           const msg = authRes.error.friendly || authRes.error.message || 'Could not complete registration';
+          if ((authRes.error.message || '').toLowerCase().includes('email not confirmed') && resendConfirmationBtn) {
+            resendConfirmationBtn.style.display = 'block';
+            this.setAuthAlert('This account still needs email verification. Click below to send the confirmation email again.', true);
+            return;
+          }
           this.setAuthAlert(msg, true);
           toast(msg);
         } else {
