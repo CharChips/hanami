@@ -45,15 +45,15 @@ Deno.serve(async (req) => {
   });
   if (insertError) return Response.json({ error: 'Could not save invitation.' }, { status: 500, headers: cors });
 
-  const inviteLink = `${appUrl.replace(/\/$/, '')}?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}&from=${encodeURIComponent(user.user_metadata?.name || user.email || 'Hanami admin')}`;
+  const inviteLink = `${appUrl.replace(/\/$/, '')}?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}&from=${encodeURIComponent(user.user_metadata?.name || user.email || 'BerryLeads admin')}`;
   const mail = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: Deno.env.get('HANAMI_FROM_EMAIL') || 'Hanami <onboarding@resend.dev>',
+      from: Deno.env.get('HANAMI_FROM_EMAIL') || 'BerryLeads <onboarding@resend.dev>',
       to: [email],
-      subject: 'You are invited to Hanami Lead Garden',
-      html: `<p>You have been invited to Hanami Lead Garden as a ${role}${campaignId ? ' for a specific campaign' : ' with access to current campaigns'}.</p><p><a href="${inviteLink}">Accept invitation and create your account</a></p><p>This link expires in 7 days. If you did not expect this invitation, you can ignore this email.</p>`,
+      subject: 'You are invited to BerryLeads',
+      html: `<p>You have been invited to BerryLeads as a ${role}${campaignId ? ' for a specific campaign' : ' with access to current campaigns'}.</p><p><a href="${inviteLink}">Accept invitation and create your account</a></p><p>This link expires in 7 days. If you did not expect this invitation, you can ignore this email.</p>`,
     }),
   });
   if (!mail.ok) {

@@ -324,7 +324,7 @@ class HanamiSupabaseSync {
           const inEmail = document.getElementById('loginEmail');
           if (inEmail) inEmail.value = email;
         } else if (res.data && res.data.session) {
-          toast(`Account created as ${role}! Welcome to Hanami.`);
+          toast(`Account created as ${role}! Welcome to BerryLeads.`);
         }
       };
     }
@@ -768,7 +768,7 @@ class HanamiSupabaseSync {
     this.user = null;
     this.userRole = 'guest';
     this.showApp();
-    toast('Using Hanami as Guest (device-only storage)');
+    toast('Using BerryLeads as Guest (device-only storage)');
     mode = 'device';
     try { leads = JSON.parse(localStorage.getItem('hanami') || '[]'); } catch(e){}
     try { cos = JSON.parse(localStorage.getItem('hanami_co') || '[]'); } catch(e){}

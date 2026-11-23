@@ -1,6 +1,6 @@
-# Hanami Lead Garden
+# BerryLeads
 
-Hanami is a static HTML lead tracker backed by Supabase Auth and Postgres. Authentication and invitation delivery require a one-time Supabase project setup.
+BerryLeads is a static HTML lead tracker backed by Supabase Auth and Postgres. Authentication and invitation delivery require a one-time Supabase project setup.
 
 ## Production setup
 
@@ -16,4 +16,4 @@ The admin account cannot be created or its password set from this repository: th
 
 ## Local run
 
-Serve this directory over HTTP (not `file://`) so Supabase Auth redirects and browser storage work. `index.html` is the main entry point; `Hanami · lead garden.html` mirrors it for convenience.
+Serve this directory over HTTP (not `file://`) so Supabase Auth redirects and browser storage work. `index.html` is the main entry point; `BerryLeads.html` mirrors it for convenience.

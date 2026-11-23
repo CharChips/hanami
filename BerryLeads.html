@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Hanami · lead garden</title>
+<title>BerryLeads · lead CRM</title>
+<link rel="icon" type="image/svg+xml" href="berryleads-icon.svg?v=1">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js"></script>
@@ -156,7 +157,7 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
   <div class="auth-card">
     <div style="text-align:center;margin-bottom:18px">
       <div id="authMascot" style="display:inline-block;margin-bottom:6px"></div>
-      <h1 style="font-size:24px;font-weight:700;margin:0 0 4px;color:var(--ink)">Hanami</h1>
+      <h1 style="font-size:24px;font-weight:700;margin:0 0 4px;color:var(--ink)">BerryLeads</h1>
       <p class="meta" style="margin:0;font-size:13px">Lead garden · Prospecting &amp; outreach CRM</p>
     </div>
 
@@ -241,7 +242,7 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
     <div id="acceptInviteCard" style="display:none;flex-direction:column;gap:12px">
       <div style="background:var(--leafl);border:1px solid color-mix(in srgb,var(--leaf) 35%,transparent);color:var(--leaf);padding:10px 12px;border-radius:10px;font-size:13px;text-align:center">
         🎉 <b>Team Invitation</b><br>
-        <span style="font-size:12px;color:var(--ink)">You were invited by <b id="invFromWho">Charchit</b> to collaborate in Hanami.</span>
+        <span style="font-size:12px;color:var(--ink)">You were invited by <b id="invFromWho">Charchit</b> to collaborate in BerryLeads.</span>
       </div>
       <form id="acceptInviteForm" style="display:flex;flex-direction:column;gap:12px" onsubmit="return false;">
         <div>
@@ -260,7 +261,7 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
           </div>
         </div>
         <button type="submit" class="btn" id="btnAcceptInviteSubmit" style="margin-top:6px;padding:10px 16px;font-size:14px;font-weight:600">
-          Set Password &amp; Open Hanami
+          Set Password &amp; Open BerryLeads
         </button>
       </form>
     </div>
@@ -299,7 +300,7 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
 
 <div class="app" id="app" style="display:none">
 <aside id="side">
-  <div class="brand"><span id="mascot"></span><span>Hanami</span></div>
+  <div class="brand"><span id="mascot"></span><span>BerryLeads</span></div>
   <nav id="nav">
 <div class="sec">Customers</div>
 <button class="t ni" data-tab="today"><span class="ic" style="--icc:#5ec4ff"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="nl">Dashboard</span></button>
@@ -337,9 +338,9 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
       <button class="avt" id="avt" title="Account profile &amp; roles" style="border:none;cursor:pointer">H</button>
     </div>
   </div>
-  <div class="nbar" id="nbar" style="display:none"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></span><span>Enable desktop notifications to get nudges while Hanami is open.</span><span class="nbx"><button class="btn" id="nbOn">Enable</button><button class="sm" id="nbOff">Dismiss</button></span></div>
+  <div class="nbar" id="nbar" style="display:none"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></span><span>Enable desktop notifications to get nudges while BerryLeads is open.</span><span class="nbx"><button class="btn" id="nbOn">Enable</button><button class="sm" id="nbOff">Dismiss</button></span></div>
   <div class="content">
-<div class="pt"><span>Hanami ·</span> <b id="ptt">Dashboard</b></div>
+<div class="pt"><span>BerryLeads ·</span> <b id="ptt">Dashboard</b></div>
 <div id="addForm" class="card">
   <div class="grid">
     <div style="grid-column:1/-1"><label>LinkedIn link (paste it, I’ll find the name)</label><input id="f-link" placeholder="https://linkedin.com/in/…"></div>
@@ -376,7 +377,7 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
     </div>
 
     <p class="meta" style="font-size:12.5px;margin:0 0 16px;line-height:1.45">
-      Hanami will email a secure invitation link that expires after seven days.
+      BerryLeads will email a secure invitation link that expires after seven days.
     </p>
 
     <form id="inviteForm" onsubmit="return false;" style="display:flex;flex-direction:column;gap:12px">
@@ -540,7 +541,7 @@ function today(){
  const nodate=act.filter(l=>!l.due&&l.status!=='spotted');
  const sp=act.filter(l=>!l.due&&l.status==='spotted').sort((a,b)=>rank(a)-rank(b)||(a.created||0)-(b.created||0));
  const n=over.length+nodate.length+sp.length;
- document.title=(n?'('+n+') ':'')+'Hanami · lead garden';
+ document.title=(n?'('+n+') ':'')+'BerryLeads · lead CRM';
  const nxt=over[0]||sp.find(l=>rank(l)<2)||nodate[0]||sp[0];
  const tap=C.filter(c=>FOCUS.includes(c[2])&&cstat(c[1]).s==='prime').map(c=>c[0]);
  let h='';
@@ -689,7 +690,7 @@ $('saveLead').onclick=()=>{
  $('addForm').classList.remove('on');tab='today';save();render()};
 
 /* game */
-const GOAL=5,LV=[[0,'Seed'],[50,'Sprout'],[120,'Bud'],[250,'First bloom'],[450,'Full bloom'],[800,'Hanami master']],PH=['Didn’t pick up, try again','Sent WhatsApp, waiting','Left voicemail','Sent email','Asked me to call back','Interested, send details'];
+const GOAL=5,LV=[[0,'Seed'],[50,'Sprout'],[120,'Bud'],[250,'First bloom'],[450,'Full bloom'],[800,'BerryLeads pro']],PH=['Didn’t pick up, try again','Sent WhatsApp, waiting','Left voicemail','Sent email','Asked me to call back','Interested, send details'];
 const lvl=x=>{let i=0;LV.forEach((v,j)=>{if(x>=v[0])i=j});return i};
 const dk=off=>new Date(Date.now()-(off||0)*864e5).toLocaleDateString('en-CA');
 let gt;function saveGame(){clearTimeout(gt);gt=setTimeout(async()=>{try{localStorage.setItem('hanami_game',JSON.stringify(game))}catch(x){}if(window.HanamiSupabase)await window.HanamiSupabase.syncGame()},300)}
@@ -1136,7 +1137,7 @@ document.addEventListener('click',ev=>{
  if(t.dataset.gs){const k=t.dataset.gs.split(':'),id=k[1];$('gs').value='';$('gsr').classList.remove('on');
   if(k[0]==='l'){const l=find(id);if(l)qshow(ACTIVE.includes(l.status)?qfor(l):{l,kind:'view',phase:'do'})}
   else{tab='huts';hfilt='all';render();const c=document.querySelector('[data-hid="'+id+'"]');if(c)c.scrollIntoView({block:'center'})}}});
-setInterval(()=>{try{if(!window.Notification||Notification.permission!=='granted')return;const m=lmin(IST,new Date());if(m<600||m>=1080)return;const n=nagN();if(!n)return;const k=+localStorage.getItem('hanami_ln')||0;if(Date.now()-k<3*36e5)return;localStorage.setItem('hanami_ln',Date.now());new Notification('Hanami',{body:n+' lead'+(n>1?'s are':' is')+' waiting on you'})}catch(x){}},6e4);
+setInterval(()=>{try{if(!window.Notification||Notification.permission!=='granted')return;const m=lmin(IST,new Date());if(m<600||m>=1080)return;const n=nagN();if(!n)return;const k=+localStorage.getItem('hanami_ln')||0;if(Date.now()-k<3*36e5)return;localStorage.setItem('hanami_ln',Date.now());new Notification('BerryLeads',{body:n+' lead'+(n>1?'s are':' is')+' waiting on you'})}catch(x){}},6e4);
 try{if(window.Notification&&Notification.permission==='default'&&!localStorage.getItem('hanami_nb'))$('nbar').style.display='flex'}catch(x){}
 setTheme(document.documentElement.getAttribute('data-theme')||'dark');
 
