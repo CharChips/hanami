@@ -465,14 +465,14 @@ const $=id=>document.getElementById(id);
 const t12=m=>{m=((m%1440)+1440)%1440;let h=Math.floor(m/60),mm=m%60,ap=h<12?'am':'pm';h=h%12||12;return h+(mm?':'+String(mm).padStart(2,'0'):'')+ap};
 function offMin(tz,d){const p=new Intl.DateTimeFormat('en-US',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}).formatToParts(d).reduce((a,x)=>(a[x.type]=+x.value,a),{});return Math.round((Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute)-Math.floor(d/60000)*60000)/60000)}
 const lmin=(tz,d)=>((Math.floor(d/60000)+offMin(tz,d))%1440+1440)%1440;
-const isPrime=m=>(m>=600&&m<720)||(m>=840&&m<990);
+const isPrime=(m,region)=>region==='SE Asia'?(m>=540&&m<960):(m>=480&&m<900);
 const isOpen=m=>m>=540&&m<1050;
-function cstat(tz){const m=lmin(tz,now);const s=isPrime(m)?'prime':isOpen(m)?'open':'closed';return{m,s,lbl:{prime:'Best time now',open:'Open',closed:'Closed'}[s]}}
-function windows(tz){const off=offMin(tz,now),ist=offMin(IST,now);const out={prime:[],open:[]};
- for(const k of['prime','open']){let cur=null;for(let s=600;s<1080;s+=30){const lm=(((s-ist+off)%1440)+1440)%1440;const ok=k==='prime'?isPrime(lm):isOpen(lm);if(ok){if(cur&&cur[1]===s)cur[1]=s+30;else{cur=[s,s+30];out[k].push(cur)}}}}
+function cstat(tz,region){const m=lmin(tz,now);const s=isPrime(m,region)?'prime':isOpen(m)?'open':'closed';return{m,s,lbl:{prime:'Best time now',open:'Open',closed:'Closed'}[s]}}
+function windows(tz,region){const off=offMin(tz,now),ist=offMin(IST,now);const out={prime:[],open:[]};
+ for(const k of['prime','open']){let cur=null;for(let s=600;s<1080;s+=30){const lm=(((s-ist+off)%1440)+1440)%1440;const ok=k==='prime'?isPrime(lm,region):isOpen(lm);if(ok){if(cur&&cur[1]===s)cur[1]=s+30;else{cur=[s,s+30];out[k].push(cur)}}}}
  const f=a=>a.map(r=>t12(r[0])+'–'+t12(r[1])).join(', ');return{prime:f(out.prime),open:f(out.open)}}
 const cls=s=>s==='prime'?'g':s==='open'?'w':'m';
-const rank=l=>{const c=C.find(x=>x[0]===l.country);if(!c)return 2;const s=cstat(c[1]).s;return s==='prime'?0:s==='open'?1:2};
+const rank=l=>{const c=C.find(x=>x[0]===l.country);if(!c)return 2;const s=cstat(c[1],c[2]).s;return s==='prime'?0:s==='open'?1:2};
 
 /* storage */
 let tmr;
@@ -502,7 +502,7 @@ function logIt(l,t){(l.log=l.log||[]).push({t:new Date().toISOString(),x:t})}
 
 /* views */
 function card(l,isNext,extra){
- const c=C.find(x=>x[0]===l.country),cs=c?cstat(c[1]):null;
+ const c=C.find(x=>x[0]===l.country),cs=c?cstat(c[1],c[2]):null;
  const od=l.due&&new Date(l.due)<=now;
  const link=l.link?'<a href="'+e(l.link)+'" target="_blank" rel="noopener">'+e(l.name)+'</a>':e(l.name);
  let h='<div class="card'+(isNext?' next':'')+'"><div class="cr"><div class="row" style="flex-wrap:nowrap;gap:10px">'+avatar(l,1)+'<div><div class="name">'+link+'</div><div class="meta">'+e(l.role||'')+(l.role&&l.country?' · ':'')+e(l.country||'')+'</div><div class="meta">Added by '+e(l.createdByName||'Before tracking')+' · '+(l.visibility==='private'?'Private to creator':'Shared with campaign team')+'</div></div></div><div class="row">';
@@ -545,7 +545,7 @@ function today(){
  const n=over.length+nodate.length+sp.length;
  document.title=(n?'('+n+') ':'')+'BerryLeads · lead CRM';
  const nxt=over[0]||sp.find(l=>rank(l)<2)||nodate[0]||sp[0];
- const tap=C.filter(c=>FOCUS.includes(c[2])&&cstat(c[1]).s==='prime').map(c=>c[0]);
+ const tap=C.filter(c=>FOCUS.includes(c[2])&&cstat(c[1],c[2]).s==='prime').map(c=>c[0]);
  let h='';
  if(!leads.length)return hutStrip()+'<div class="banner"><h2>Your garden is empty</h2>Add the first profile you find. Even a bare LinkedIn link is enough, I’ll keep it from getting lost.</div>';
  h+='<div class="banner"><h2>'+(n?n+' lead'+(n>1?'s':'')+' waiting on you':'All caught up 🌸')+'</h2><div class="meta">'+(over.length?over.length+' overdue · ':'')+(sp.length?sp.length+' spotted but never contacted · ':'')+(nodate.length?nodate.length+' with no next step · ':'')+(later.length?later.length+' due later today':'')+'</div></div>';
@@ -576,7 +576,7 @@ function plan(){
  let h='<div class="chips"><button class="sm'+(day?'':' p')+'" data-pd="today">Today</button><button class="sm'+(day?' p':'')+'" data-pd="tom">Tomorrow</button></div>';
  if(!top.length)return h+'<div class="empty">Nothing to chase for '+(day?'tomorrow':'today')+'. Add more leads 🌸</div>';
  h+='<div class="banner"><h2>'+top.length+' lead'+(top.length>1?'s':'')+' to tap '+(day?'tomorrow':'today')+'</h2><div class="meta">'+(rows.length>25?'Top 25 of '+rows.length+', ranked':'Ranked')+' by how good and how overdue they are. '+(cs?'Mostly: '+e(cs):'')+'</div></div>';
- return h+top.map(r=>{const l=r[1],c=C.find(x=>x[0]===l.country);let w='';if(c){const ww=windows(c[1]);w=ww.prime||ww.open}
+ return h+top.map(r=>{const l=r[1],c=C.find(x=>x[0]===l.country);let w='';if(c){const ww=windows(c[1],c[2]);w=ww.prime||ww.open}
   const ex=r[2].map(x=>'<span class="chip w">'+e(x)+'</span>').join('')+(w?'<span class="chip g">Try '+w+' IST</span>':(c?'<span class="chip m">Outside your hours</span>':''));
   return card(l,false,ex)}).join('')}
 
@@ -603,15 +603,15 @@ function campaignsView(){const isOwner=window.HanamiSupabase?.user?.email?.toLow
 
 function where(){
  const mine=lmin(IST,now),inH=mine>=600&&mine<1080;
- const rows=C.filter(c=>reg==='all'||(reg==='focus'?FOCUS.includes(c[2]):reg==='now'?cstat(c[1]).s!=='closed':c[2]===reg)).map(c=>({n:c[0],tz:c[1],s:cstat(c[1]),w:windows(c[1])})).sort((a,b)=>({prime:0,open:1,closed:2}[a.s.s]-{prime:0,open:1,closed:2}[b.s.s])||a.n.localeCompare(b.n));
- let h='<div class="meta" style="margin-bottom:12px">Windows are shown in your time (IST), inside your 10am–6pm shift. “Best” means 10am–12pm or 2pm–4:30pm there; “open” is 9am–5:30pm. Big countries use one main city’s time.'+(inH?'':' <b style="color:var(--warn)">You’re off the clock right now, so these are for tomorrow too.</b>')+'</div>';
+ const rows=C.filter(c=>reg==='all'||(reg==='focus'?FOCUS.includes(c[2]):reg==='now'?cstat(c[1],c[2]).s!=='closed':c[2]===reg)).map(c=>({n:c[0],tz:c[1],s:cstat(c[1],c[2]),w:windows(c[1],c[2])})).sort((a,b)=>({prime:0,open:1,closed:2}[a.s.s]-{prime:0,open:1,closed:2}[b.s.s])||a.n.localeCompare(b.n));
+ let h='<div class="meta" style="margin-bottom:12px">Windows are shown in your time (IST), inside your 10am–6pm shift. “Best” is 8am–3pm local time in most countries and 9am–4pm in Southeast Asia; “open” is 9am–5:30pm. Big countries use one main city’s time.'+(inH?'':' <b style="color:var(--warn)">You’re off the clock right now, so these are for tomorrow too.</b>')+'</div>';
  const rc=[['focus','My markets'],['now','Open now'],['all','All']].concat(REGS.map(r=>[r,r]));
  h+='<div class="chips">'+rc.map(r=>'<button class="sm'+(reg===r[0]?' p':'')+'" data-r="'+e(r[0])+'">'+e(r[1])+'</button>').join('')+'</div>';
  return h+callingZonesMap()+(rows.length?'':'<div class="empty">Nothing open in this group right now.</div>')+rows.map(r=>'<div class="card"><div class="cr"><div><div class="name">'+r.n+'</div><div class="meta">'+t12(r.s.m)+' there now</div></div><span class="chip '+cls(r.s.s)+'">'+r.s.lbl+'</span></div><div class="meta" style="margin-top:6px">'+(r.w.prime?'Best: '+r.w.prime+' IST':r.w.open?'Open only: '+r.w.open+' IST':'No overlap with your hours')+(r.w.prime&&r.w.open&&r.w.open!==r.w.prime?' · Open: '+r.w.open:'')+'</div></div>').join('')}
 
 function callingZonesMap(){
  wprep();const rank={unknown:-1,closed:0,open:1,prime:2},counts={prime:0,open:0,closed:0,unknown:0};
- const rows=WORLD.c.filter(r=>r.m).map(r=>{const c=C.find(x=>x[0]===r.n),s=c?cstat(c[1]):null,key=s?s.s:'unknown';counts[key]++;
+ const rows=WORLD.c.filter(r=>r.m).map(r=>{const c=C.find(x=>x[0]===r.n),s=c?cstat(c[1],c[2]):null,key=s?s.s:'unknown';counts[key]++;
   const ring=a=>a.reduce((d,v,i)=>d+(i%2===0?(i?'L':'M'):' ')+Number(v).toFixed(2),'')+'Z';
   const path=r.p.map(poly=>[poly.o,...poly.h].map(ring).join(' ')).join(' ');
   return{r,c,s,key,path}}).sort((a,b)=>rank[a.key]-rank[b.key]||a.r.n.localeCompare(b.r.n));
@@ -728,7 +728,7 @@ function nextQuest(){
   if(!kind)continue;if(l.hot)s+=4;s+=(2-rank(l))*1.2+Math.random()*.8;c.push([s,l,kind,age])}
  c.sort((a,b)=>b[0]-a[0]);
  if(c.length)return{l:c[0][1],kind:c[0][2],age:c[0][3],phase:'do'};
- const fc=C.filter(x=>FOCUS.includes(x[2])),pool=fc.filter(x=>cstat(x[1]).s!=='closed'),src=pool.length?pool:fc,pc=src[Math.floor(Math.random()*src.length)];
+ const fc=C.filter(x=>FOCUS.includes(x[2])),pool=fc.filter(x=>cstat(x[1],x[2]).s!=='closed'),src=pool.length?pool:fc,pc=src[Math.floor(Math.random()*src.length)];
  const qc=QC&&C.find(x=>x[0]===QC);return{kind:'find',country:qc?qc[0]:pc[0],tz:qc?qc[1]:pc[1],phase:'do'}}
 function qhtml(){
  if(!Q)return'';const l=Q.l,X='<div class="row" style="margin-top:14px">';
@@ -738,7 +738,7 @@ function qhtml(){
  if(Q.kind==='find'){const m=lmin(Q.tz,now);return'<div class="meta">Your quest</div><h2>Out of leads? Let’s restock.</h2><div class="note">Find 3 HR leaders in <b>'+e(Q.country)+'</b> on LinkedIn and save them. It’s '+t12(m)+' there now. Every lead you add earns XP, and you can contact them later.</div>'+X+'<button class="btn" data-q="add">Add a profile</button><button class="sm" data-q="skip">Another idea</button><button class="sm" data-q="close">Not now</button></div>'}
  if(Q.kind==='view')return card(l);
  if(Q.phase==='next')return'<h2>Nice one 🌸</h2><div class="meta" style="margin:4px 0 10px">What’s the next step with '+e(l.name)+'? Plain words are fine.</div><input id="qns" value="'+e(Q.pre||l.next||'')+'" placeholder="e.g. try again tomorrow"><div class="row" style="margin:8px 0">'+PH.map(x=>'<button class="sm" data-q="ph" data-t="'+e(x)+'">'+e(x)+'</button>').join('')+'</div><div class="meta" style="margin-bottom:6px">Nudge me on…</div><div class="row"><button class="sm p" data-q="sn" data-d="1">Tomorrow 11am</button><button class="sm" data-q="sn" data-d="3">In 3 days</button><button class="sm" data-q="sn" data-d="7">Next week</button><button class="sm" data-q="sn" data-d="">No date</button></div><div class="row" style="margin-top:12px"><button class="sm" data-q="close">Stop for now</button></div>';
- const c=C.find(x=>x[0]===l.country),cs=c?cstat(c[1]):null,f=(l.name||'there').split(' ')[0];
+ const c=C.find(x=>x[0]===l.country),cs=c?cstat(c[1],c[2]):null,f=(l.name||'there').split(' ')[0];
  const T={due:['Time to follow up with '+l.name,'They’re waiting on you'+(l.next?': '+l.next:'.')],first:['Say hello to '+l.name,'You spotted this profile and never reached out. Don’t let it go cold.'],revive:['Wake up an old lead: '+l.name,'Quiet for '+Q.age+' days. They already know your name, so this is warmer than a cold call. Bonus XP for reviving.'],retry:['Try '+l.name+' once more','Last touch was '+Q.age+' days ago'+(l.next?'. Your note: '+l.next:'.')]}[Q.kind];
  const say={first:'Hi '+f+', came across your profile and wanted to say hello. Do you have 2 minutes this week?',revive:'Hi '+f+', I reached out a while back and would love to pick this up again. Is now a better time?',due:'Hi '+f+', circling back as promised. Is now a good moment for a quick chat?',retry:'Hi '+f+', I tried you earlier. When’s a good time for a quick 5 minutes?'}[Q.kind];
  const how=cs?(cs.s==='closed'?'It’s '+t12(cs.m)+' in '+e(l.country)+', so send a WhatsApp or LinkedIn message rather than calling.':'It’s '+t12(cs.m)+' in '+e(l.country)+'. Good time to call'+(cs.s==='prime'?', it’s a best slot':'')+'.'):'';
@@ -806,12 +806,12 @@ function orchard(){
  if(thirsty.length)h+='<button class="btn" id="thirst" style="margin-bottom:14px">Water the thirstiest plant ('+thirsty.length+' waiting)</button>';
  if(!leads.length)return h+'<div class="empty">Your orchard is bare. Add a lead to plant the first seed.</div>';
  const rk=s=>s?{prime:0,open:1,closed:2}[s.s]:2;
- const ks=Object.keys(by).map(k=>{const c=C.find(x=>x[0]===k);return{k,s:c?cstat(c[1]):null,ls:by[k]}}).sort((a,b)=>rk(a.s)-rk(b.s)||b.ls.filter(l=>on(l)&&ag(l)>=3).length-a.ls.filter(l=>on(l)&&ag(l)>=3).length||a.k.localeCompare(b.k));
+ const ks=Object.keys(by).map(k=>{const c=C.find(x=>x[0]===k);return{k,s:c?cstat(c[1],c[2]):null,ls:by[k]}}).sort((a,b)=>rk(a.s)-rk(b.s)||b.ls.filter(l=>on(l)&&ag(l)>=3).length-a.ls.filter(l=>on(l)&&ag(l)>=3).length||a.k.localeCompare(b.k));
  const ord=l=>({demo:0,handed:1,reached:2,callback:2,spotted:3,dropped:4}[l.status]);
  h+=ks.map(o=>{const ls=o.ls.slice().sort((a,b)=>ord(a)-ord(b)||(b.log||[]).length-(a.log||[]).length),s=o.s;
   const sm=[[ls.filter(l=>l.status==='spotted').length,'seeds'],[ls.filter(l=>l.status==='reached'||l.status==='callback').length,'growing'],[ls.filter(l=>l.status==='demo').length,'fruit'],[ls.filter(l=>l.status==='handed').length,'harvested'],[ls.filter(l=>on(l)&&ag(l)>=3).length,'thirsty']].filter(x=>x[0]).map(x=>x[0]+' '+x[1]).join(' · ');
   return'<div class="plot '+(s&&s.s!=='closed'?'day':'night')+'"><div class="cr"><b>'+e(o.k)+'</b><span class="meta">'+(s?(s.s==='closed'?'☾ ':'☀ ')+t12(s.m)+' there · '+(s.s==='prime'?'best time to tap':s.s==='open'?'open':'closed'):'')+'</span></div><div class="field">'+ls.slice(0,30).map(l=>'<button class="pl" data-p="'+l.id+'" title="'+e(l.name+' · '+ST[l.status])+'">'+plantSvg(l)+'<span>'+e((l.name||'?').split(' ')[0])+'</span></button>').join('')+'</div><div class="meta">'+sm+(ls.length>30?' · +'+(ls.length-30)+' more':'')+'</div></div>'}).join('');
- const empty=C.filter(c=>FOCUS.includes(c[2])&&!by[c[0]]).map(c=>[c,cstat(c[1])]).sort((a,b)=>rk(a[1])-rk(b[1])).slice(0,8);
+ const empty=C.filter(c=>FOCUS.includes(c[2])&&!by[c[0]]).map(c=>[c,cstat(c[1],c[2])]).sort((a,b)=>rk(a[1])-rk(b[1])).slice(0,8);
  if(empty.length)h+='<div class="lbl">Empty plots in your markets</div><div class="chips">'+empty.map(x=>'<button class="sm" data-addc="'+e(x[0][0])+'">+ Plant in '+e(x[0][0])+(x[1].s==='closed'?'':' ☀')+'</button>').join('')+'</div>';
  const hv=leads.filter(l=>l.status==='demo'||l.status==='handed');
  if(hv.length)h+='<div class="lbl">Harvest basket</div><div class="meta">'+hv.map(l=>e(l.name)+(l.country?' ('+e(l.country)+')':'')).join(', ')+'</div>';
@@ -939,7 +939,7 @@ function plant3d(l,sc){
  if(wilt)g.rotation.z=.2;
  g.userData={leadId:l.id,sway:sg>=4&&sg<8&&!wilt,ph:Math.random()*6,sc,grow:1};g.scale.setScalar(sc);return g}
 
-function wState(r){const c=C.find(x=>x[0]===r.n);return c?cstat(c[1]):null}
+function wState(r){const c=C.find(x=>x[0]===r.n);return c?cstat(c[1],c[2]):null}
 function worldUpdate(){
  if(!W3||!W3.ready)return;
  const viewLeads=campaignLeads();
@@ -964,7 +964,7 @@ function worldUpdate(){
 
 function wpanel(){const k=W3&&W3.sel,box=$('wpanel');
  if(!k){box.innerHTML='<div class="meta" style="margin-top:10px">Tap a country (or a pink pillar) to zoom in. Every plant is a lead. Tap one to water it.</div>';return}
- const ls=campaignLeads().filter(l=>l.country===k),c=C.find(x=>x[0]===k),s=c?cstat(c[1]):null,on=l=>ACTIVE.includes(l.status);
+ const ls=campaignLeads().filter(l=>l.country===k),c=C.find(x=>x[0]===k),s=c?cstat(c[1],c[2]):null,on=l=>ACTIVE.includes(l.status);
  const ord={demo:0,handed:1,reached:2,callback:2,spotted:3,dropped:4};
  box.innerHTML='<div class="plot '+(s&&s.s!=='closed'?'day':'night')+'" style="margin-top:12px"><div class="cr"><b>'+e(k)+'</b><span class="meta">'+(s?(s.s==='closed'?'\u263e ':'\u2600 ')+t12(s.m)+' there \u00b7 '+(s.s==='prime'?'best time to tap':s.s==='open'?'open':'closed'):'')+'</span></div>'+landBox(k)+(ls.length?'<div class="field">'+ls.slice().sort((a,b)=>ord[a.status]-ord[b.status]).slice(0,40).map(l=>'<button class="pl" data-p="'+l.id+'" title="'+e(l.name+' \u00b7 '+ST[l.status])+'">'+plantSvg(l)+'<span>'+e((l.name||'?').split(' ')[0])+'</span></button>').join('')+'</div>':'<div class="meta" style="margin:8px 0">Nothing planted here yet.</div>')+'<button class="sm p" data-addc="'+e(k)+'">+ Plant a seed in '+e(k)+'</button></div>'}
 
@@ -1048,9 +1048,9 @@ function boardView(){
 
 let QC=null;
 function setC(c){QC=c||null;skipped.clear();Q=nextQuest();renderQ()}
-function randCountry(){const fc=C.filter(x=>FOCUS.includes(x[2])),w=fc.map(c=>{const s=cstat(c[1]).s,n=leads.filter(l=>ACTIVE.includes(l.status)&&l.country===c[0]).length;return(s==='prime'?4:s==='open'?2:.7)+(n?2:0)}),tot=w.reduce((a,b)=>a+b,0);let r=Math.random()*tot;for(let i=0;i<fc.length;i++){r-=w[i];if(r<=0)return fc[i][0]}return fc[0][0]}
+function randCountry(){const fc=C.filter(x=>FOCUS.includes(x[2])),w=fc.map(c=>{const s=cstat(c[1],c[2]).s,n=leads.filter(l=>ACTIVE.includes(l.status)&&l.country===c[0]).length;return(s==='prime'?4:s==='open'?2:.7)+(n?2:0)}),tot=w.reduce((a,b)=>a+b,0);let r=Math.random()*tot;for(let i=0;i<fc.length;i++){r-=w[i];if(r<=0)return fc[i][0]}return fc[0][0]}
 function pickHtml(){const wl={};leads.forEach(l=>{if(ACTIVE.includes(l.status)&&l.country)wl[l.country]=(wl[l.country]||0)+1});
- const chips=C.filter(c=>FOCUS.includes(c[2])&&cstat(c[1]).s!=='closed').map(c=>c[0]).sort((a,b)=>(wl[b]||0)-(wl[a]||0)).slice(0,10).map(n=>'<button class="sm" data-q="cpick" data-c="'+e(n)+'">'+e(n)+(wl[n]?' ('+wl[n]+')':'')+'</button>').join('');
+ const chips=C.filter(c=>FOCUS.includes(c[2])&&cstat(c[1],c[2]).s!=='closed').map(c=>c[0]).sort((a,b)=>(wl[b]||0)-(wl[a]||0)).slice(0,10).map(n=>'<button class="sm" data-q="cpick" data-c="'+e(n)+'">'+e(n)+(wl[n]?' ('+wl[n]+')':'')+'</button>').join('');
  return'<h2>Which country are you feeling?</h2><div class="meta" style="margin:4px 0 10px">Pick one and every suggestion will come from there.</div><div class="row"><select id="qc" style="flex:1;min-width:160px">'+cOpts('').replace('No country','Choose a country\u2026')+'</select><button class="btn" data-q="cgo">Go</button></div><div class="row" style="margin-top:10px"><button class="sm p" data-q="crand">\ud83c\udfb2 Surprise me</button><button class="sm" data-q="cany">Anywhere</button></div>'+(chips?'<div class="lbl">Open for calls right now</div><div class="row">'+chips+'</div>':'')}
 
 let cos=[],hfilt='building',hadd=false,hopen=null,delCo=null,delT;const csnap=new Map();let ct;
@@ -1077,7 +1077,7 @@ function hutSvg(st,pl,done){
  if(pl>6&&!done)for(let i=0;i<Math.min(pl-6,4);i++)g+='<rect x="98" y="'+(82-i*5)+'" width="18" height="4.2" rx="1" fill="'+wd+'"'+S+'/>';
  return'<svg viewBox="0 0 120 100" width="104" height="87" aria-hidden="true" style="flex:none">'+g+'</svg>'}
 function hutCard(c){
- const pl=planksOf(c),done=c.status==='done',st=done?7:Math.min(6,pl),cc=C.find(x=>x[0]===c.country),cs=cc?cstat(cc[1]):null,age=coAge(c);
+ const pl=planksOf(c),done=c.status==='done',st=done?7:Math.min(6,pl),cc=C.find(x=>x[0]===c.country),cs=cc?cstat(cc[1],cc[2]):null,age=coAge(c);
  const lg=(c.log||[]).slice(-3).reverse().map(x=>'<span class="chip m">'+chIco(x.ch)+' '+e(x.ch)+(x.note?': '+e(x.note.slice(0,24)):'')+'</span>').join(' ');
  let h='<div class="card" data-hid="'+c.id+'"><div class="row" style="flex-wrap:nowrap;gap:12px;align-items:flex-start">'+hutSvg(st,pl,done)+'<div style="flex:1;min-width:0"><div class="name">'+e(c.name)+'</div><div class="meta">'+(c.country?e(c.country)+(cs?' · '+(cs.s==='closed'?'☾':'☀')+' '+t12(cs.m):'')+' · ':'')+(done?'Demo scheduled '+new Date(c.done).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):Math.min(pl,6)+'/6 planks'+(pl>=6?' · ready, book the demo!':'')+(age>=3&&c.log&&c.log.length?' · quiet '+age+' days':''))+'</div>';
  if(!done)h+='<div class="bar"><i style="width:'+Math.round(Math.min(pl,6)/6*100)+'%"></i></div>';
