@@ -704,7 +704,7 @@ function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clear
 function burst(){for(let i=0;i<14;i++){const p=document.createElement('i');p.className='bp';p.style.background=['#ffb4d2','#d8ccff','#cdeaff','#ffe29a'][i%4];p.style.setProperty('--x',(Math.random()*320-160)+'px');p.style.setProperty('--y',(-80-Math.random()*220)+'px');document.body.appendChild(p);setTimeout(()=>p.remove(),1200)}}
 function award(n,msg){const k=dk(0);if(game.lastDay!==k){game.streak=game.lastDay===dk(1)?(game.streak||0)+1:1;game.lastDay=k}
  if(!game.today||game.today.d!==k)game.today={d:k,n:0};game.today.n++;const before=lvl(game.xp||0);game.xp=(game.xp||0)+n;
- const after=lvl(game.xp);saveGame();burst();cheer();toast('+'+n+' XP'+(after>before?' · level up: '+LV[after][1]+'!':msg?' · '+msg:''));renderHud()}
+ const after=lvl(game.xp);saveGame();burst();toast('+'+n+' XP'+(after>before?' · level up: '+LV[after][1]+'!':msg?' · '+msg:''));renderHud()}
 function renderHud(){const k=dk(0),xp=game.xp||0,i=lvl(xp),nx=LV[i+1],pct=nx?Math.round((xp-LV[i][0])/(nx[0]-LV[i][0])*100):100;
  const n=game.today&&game.today.d===k?game.today.n:0,st=(game.lastDay===k||game.lastDay===dk(1))?game.streak||0:0;
  $('hud').innerHTML='<div class="xp"><div class="cr"><b>'+LV[i][1]+'</b><span class="meta">'+xp+' XP</span></div><div class="bar"><i style="width:'+pct+'%"></i></div><div class="meta" style="margin-top:4px">'+(nx?(nx[0]-xp)+' XP to '+nx[1]:'Top level')+'</div><div class="cr" style="margin-top:12px"><span class="meta">Daily goal</span><span class="meta">'+n+'/'+GOAL+(n>=GOAL?' ✓':'')+'</span></div><div class="bar g"><i style="width:'+Math.min(n/GOAL,1)*100+'%"></i></div><div class="meta" style="margin-top:8px">'+st+' day streak</div></div>'}
