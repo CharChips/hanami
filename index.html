@@ -7,7 +7,7 @@
 <link rel="icon" type="image/svg+xml" href="berryleads-icon.svg?v=1">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=20261123-berryleads-brand"></script>
+<script src="supabase-sync.js?v=20261123-berryleads-no-bunny"></script>
 <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("hanami_theme")||"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
 <style>
 :root,:root[data-theme="dark"]{--bg:#1a1a1b;--side:#161617;--card:#232325;--ink:#ececf0;--mute:#8d8d97;--line:#2d2d30;--pink:#8b86f0;--pinkd:#a8a4ff;--pinkl:rgba(139,134,240,.14);--leaf:#5fcf9a;--leafl:rgba(95,207,154,.14);--warn:#e5b45c;--warnl:rgba(229,180,92,.14);--lav:#8b86f0;--sky:#6aa8ff;--red:#ef7a85;--redl:rgba(239,122,133,.14);--fruit:#ffb08a;--field:#1e1e20;color-scheme:dark}
@@ -23,7 +23,6 @@ button{font:inherit;color:inherit;cursor:pointer}
 .app{display:flex;min-height:100vh}
 #side{width:252px;flex:none;background:var(--side);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;display:flex;flex-direction:column;overflow-y:auto;z-index:40}
 .brand{display:flex;align-items:center;gap:10px;padding:16px 20px 4px;font-weight:700;font-size:19px;letter-spacing:-.02em}
-#mascot svg{width:34px;height:auto;display:block}
 #nav{padding:4px 12px 10px;flex:1}
 .sec{font-size:11px;font-weight:600;letter-spacing:.13em;color:var(--mute);padding:20px 10px 8px;text-transform:uppercase}
 .ni{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;color:var(--mute);padding:9px 10px;border-radius:10px;font-size:14.5px;position:relative;text-align:left;margin:1px 0}
@@ -156,7 +155,6 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
 <div id="authPage" class="auth-wrap">
   <div class="auth-card">
     <div style="text-align:center;margin-bottom:18px">
-      <div id="authMascot" style="display:inline-block;margin-bottom:6px"></div>
       <h1 style="font-size:24px;font-weight:700;margin:0 0 4px;color:var(--ink)">BerryLeads</h1>
       <p class="meta" style="margin:0;font-size:13px">Campaigns, collaborators &amp; leads in one place</p>
     </div>
@@ -301,7 +299,7 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
 
 <div class="app" id="app" style="display:none">
 <aside id="side">
-  <div class="brand"><span id="mascot"></span><span>BerryLeads</span></div>
+  <div class="brand"><span>BerryLeads</span></div>
   <nav id="nav">
 <div class="sec">Customers</div>
 <button class="t ni" data-tab="today"><span class="ic" style="--icc:#5ec4ff"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="nl">Dashboard</span></button>
@@ -548,7 +546,7 @@ function today(){
  const tap=C.filter(c=>FOCUS.includes(c[2])&&cstat(c[1]).s==='prime').map(c=>c[0]);
  let h='';
  if(!leads.length)return hutStrip()+'<div class="banner"><h2>Your garden is empty</h2>Add the first profile you find. Even a bare LinkedIn link is enough, I’ll keep it from getting lost.</div>';
- h+='<div class="banner">'+(n?'':'<span style="float:right">'+bunny('sleep',56)+'</span>')+'<h2>'+(n?n+' lead'+(n>1?'s':'')+' waiting on you':'All caught up 🌸')+'</h2><div class="meta">'+(over.length?over.length+' overdue · ':'')+(sp.length?sp.length+' spotted but never contacted · ':'')+(nodate.length?nodate.length+' with no next step · ':'')+(later.length?later.length+' due later today':'')+'</div></div>';
+ h+='<div class="banner"><h2>'+(n?n+' lead'+(n>1?'s':'')+' waiting on you':'All caught up 🌸')+'</h2><div class="meta">'+(over.length?over.length+' overdue · ':'')+(sp.length?sp.length+' spotted but never contacted · ':'')+(nodate.length?nodate.length+' with no next step · ':'')+(later.length?later.length+' due later today':'')+'</div></div>';
  h+='<div class="meta" style="margin-bottom:12px">'+(tap.length?'Best countries to tap right now: <b style="color:var(--ink)">'+tap.slice(0,12).join(', ')+(tap.length>12?' +'+(tap.length-12)+' more':'')+'</b>':'No country is in its best window this minute. See “Where to call”.')+'</div>';
  h+=hutStrip();
  if(nxt)h+='<div class="lbl">Do this next</div>'+card(nxt,true);
@@ -729,7 +727,7 @@ function qhtml(){
  const say={first:'Hi '+f+', came across your profile and wanted to say hello. Do you have 2 minutes this week?',revive:'Hi '+f+', I reached out a while back and would love to pick this up again. Is now a better time?',due:'Hi '+f+', circling back as promised. Is now a good moment for a quick chat?',retry:'Hi '+f+', I tried you earlier. When’s a good time for a quick 5 minutes?'}[Q.kind];
  const how=cs?(cs.s==='closed'?'It’s '+t12(cs.m)+' in '+e(l.country)+', so send a WhatsApp or LinkedIn message rather than calling.':'It’s '+t12(cs.m)+' in '+e(l.country)+'. Good time to call'+(cs.s==='prime'?', it’s a best slot':'')+'.'):'';
  return'<div class="row" style="flex-wrap:nowrap;gap:10px;margin-bottom:6px">'+avatar(l,0)+'<div class="meta">Your quest'+(l.hot?' · ★ good lead':'')+'</div></div><h2>'+e(T[0])+'</h2><div class="note">'+e(T[1])+(l.role?' ('+e(l.role)+')':'')+'</div>'+ctx(l)+'<div class="say"><div class="meta">Say something like</div>'+e(say)+'</div><div class="meta">'+how+'</div>'+X+'<button class="btn" data-q="done">I did it ✓</button><button class="sm" data-q="nopick">Didn’t pick up</button><button class="sm" data-q="demo">Demo booked 🍑</button><button class="sm" data-q="edit">Edit</button><button class="sm" data-q="rmp">Remove…</button><button class="sm" data-q="skip">Skip</button>'+(l.link?'<a class="sm" href="'+e(l.link)+'" target="_blank" rel="noopener" style="text-decoration:none">Open profile</a>':'')+'<button class="sm" data-q="close">Not now</button></div>'}
-function renderQ(){$('qbox').innerHTML='<button class="sm" data-q="close" aria-label="Close" style="float:right;margin:0 0 8px 8px">✕ Close</button><span style="float:right;margin:-4px 2px 0 0">'+bunny(Q&&Q.phase==='next'?'cheer':'hi',54)+'</span>'+(Q&&Q.kind!=='pick'?'<button class="sm" data-q="cchg" style="float:right;margin:0 0 8px 8px">📍 '+e(QC||'Anywhere')+' \u00b7 change</button>':'')+qhtml()}
+function renderQ(){$('qbox').innerHTML='<button class="sm" data-q="close" aria-label="Close" style="float:right;margin:0 0 8px 8px">✕ Close</button>'+(Q&&Q.kind!=='pick'?'<button class="sm" data-q="cchg" style="float:right;margin:0 0 8px 8px">📍 '+e(QC||'Anywhere')+' \u00b7 change</button>':'')+qhtml()}
 function qopen(){QC=null;Q={kind:'pick',phase:'pick'};$('qv').classList.add('on');renderQ()}
 function qclick(t){const a=t.dataset.q,l=Q&&Q.l;
  if(a==='close'){$('qv').classList.remove('on');Q=null;return render()}
@@ -876,13 +874,7 @@ function buildWorld(){
  ctl.addEventListener('start',()=>{W3.tw=null});
  if(window.ResizeObserver)new ResizeObserver(()=>wresize()).observe(box);
  $('wchips').innerHTML=Object.keys(WORLD.pr).map(k=>'<button class="sm" data-wr="'+e(k)+'">'+e(k)+'</button>').join('')+'<button class="sm" data-wtilt="1">Tilt view</button>';
- const bn=new T.Group(),wm=lm(0xfffaf6),pm=lm(0xffb3c6),km=new T.MeshBasicMaterial({color:0x5b3a40});
- const bb=(g,m,x,y,z,sx,sy,sz)=>{const o=new T.Mesh(g,m);o.position.set(x,y,z);o.scale.set(sx,sy==null?sx:sy,sz==null?sx:sz);bn.add(o);return o};
- bb(W3.sph,wm,0,.8,0,.85,.75,.8);bb(W3.sph,wm,0,1.75,.1,.68);bb(W3.sph,wm,0,.8,-.75,.3);
- const e1=bb(W3.sph,wm,-.28,2.65,.05,.17,.62,.12),e2=bb(W3.sph,wm,.28,2.65,.05,.17,.62,.12);bb(W3.sph,pm,-.28,2.6,.12,.09,.44,.05);bb(W3.sph,pm,.28,2.6,.12,.09,.44,.05);
- bb(W3.sph,km,-.24,1.82,.68,.07);bb(W3.sph,km,.24,1.82,.68,.07);bb(W3.sph,pm,0,1.68,.74,.09,.06,.06);bb(W3.sph,pm,-.42,1.65,.6,.13,.09,.05);bb(W3.sph,pm,.42,1.65,.6,.13,.09,.05);
- const hm=new T.Mesh(W3.hitG,W3.hitM);hm.position.y=1.3;bn.add(hm);bn.scale.setScalar(1.5);bn.userData={bunny:1};W3.bunny=bn;W3.bunnyEars=[e1,e2];scene.add(bn);
- wresize();bunnyTo(WORLD.by['India']||WORLD.c[0],true);flyPreset('World',true)}
+ wresize();flyPreset('World',true)}
 
 function wresize(){if(!W3||!W3.ren)return;const w=W3.box.clientWidth||800,h=W3.box.clientHeight||500;W3.ren.setSize(w,h);W3.cam.aspect=w/h;W3.cam.updateProjectionMatrix()}
 function setCam(tx,tz,d,p,a){W3.ctl.target.set(tx,0,tz);W3.cam.position.set(tx+d*Math.sin(p)*Math.sin(a),d*Math.cos(p),tz+d*Math.sin(p)*Math.cos(a));W3.cam.lookAt(W3.ctl.target)}
@@ -894,16 +886,16 @@ function wHi(name){WORLD.c.forEach(q=>{if(q.mesh)q.mesh.material[0].emissive.set
 function curView(){const o=W3.cam.position.clone().sub(W3.ctl.target),dd=o.length()||1;return{tx:W3.ctl.target.x,tz:W3.ctl.target.z,d:dd,p:Math.acos(Math.max(-1,Math.min(1,o.y/dd))),a:Math.atan2(o.x,o.z),sel:W3.sel}}
 function pushView(){W3.vs=W3.vs||[];W3.vs.push(curView());if(W3.vs.length>12)W3.vs.shift();wbtn()}
 function wbtn(){const b=$('wback');if(b)b.style.display=W3&&W3.vs&&W3.vs.length?'block':'none'}
-function wBack(){if(!W3||!W3.vs||!W3.vs.length)return;const v=W3.vs.pop();W3.sel=v.sel||null;wHi(W3.sel);flyTo(v.tx,v.tz,v.d,v.p,v.a);if(W3.sel)bunnyTo(WORLD.by[W3.sel]);wpanel();wbtn()}
+function wBack(){if(!W3||!W3.vs||!W3.vs.length)return;const v=W3.vs.pop();W3.sel=v.sel||null;wHi(W3.sel);flyTo(v.tx,v.tz,v.d,v.p,v.a);wpanel();wbtn()}
 function selectCountry(name){const r=WORLD.by[name];if(!r)return;pushView();W3.sel=name;wHi(name);
  const sz=Math.max(r.b[2]-r.b[0],(r.b[3]-r.b[1])*1.5),d=Math.max(26,Math.min(170,sz*1.5));
- flyTo(r.c[0],r.c[1],d,1.0,null);bunnyTo(r);wpanel()}
+ flyTo(r.c[0],r.c[1],d,1.0,null);wpanel()}
 function pickAt(cx,cy){const b=W3.ren.domElement.getBoundingClientRect(),nx=((cx-b.left)/b.width)*2-1,ny=-((cy-b.top)/b.height)*2+1;return pickNDC(nx,ny)}
-function pickNDC(nx,ny){W3.ray.setFromCamera({x:nx,y:ny},W3.cam);const roots=[W3.plants,W3.bunny];if(W3.beacons.visible)roots.push(W3.beacons);roots.push(W3.land);
- const hits=W3.ray.intersectObjects(roots,true);for(const h of hits){let o=h.object;while(o&&o.userData.leadId==null&&o.userData.ctry==null&&!o.userData.bunny&&o.parent)o=o.parent;if(o&&o.userData.bunny)return{bunny:1};if(o&&o.userData.leadId!=null)return{lead:o.userData.leadId};if(o&&o.userData.ctry!=null)return{ctry:o.userData.ctry}}return null}
+function pickNDC(nx,ny){W3.ray.setFromCamera({x:nx,y:ny},W3.cam);const roots=[W3.plants];if(W3.beacons.visible)roots.push(W3.beacons);roots.push(W3.land);
+ const hits=W3.ray.intersectObjects(roots,true);for(const h of hits){let o=h.object;while(o&&o.userData.leadId==null&&o.userData.ctry==null&&o.parent)o=o.parent;if(o&&o.userData.leadId!=null)return{lead:o.userData.leadId};if(o&&o.userData.ctry!=null)return{ctry:o.userData.ctry}}return null}
 function wclick(e){const h=pickAt(e.clientX,e.clientY);if(!h)return;
  if(h.lead){const l=find(h.lead);if(l)qshow(ACTIVE.includes(l.status)?qfor(l):{l,kind:'view',phase:'do'})}
- else if(h.ctry)selectCountry(h.ctry);else if(h.bunny)bunnyHi()}
+ else if(h.ctry)selectCountry(h.ctry)}
 
 function slotsFor(r,n){const A=Math.max(r.area,2);let s=Math.max(.85,Math.min(2.6,Math.sqrt(A/n)*.95)),pts=[];
  for(let k=0;k<6;k++){pts=[];for(let x=r.b[0]+s/2;x<r.b[2];x+=s)for(let z=r.b[1]+s/2;z<r.b[3];z+=s){const px=x+jit(x,z)*s*.35,pz=z+jit(z,x)*s*.35;if(inRec(px,pz,r))pts.push([px,pz])}
@@ -966,7 +958,6 @@ function wtick(){
  if(W3.tw){const w=W3.tw;w.t+=dt/1.1;const k=Math.min(1,w.t),q=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2,f=(a,b)=>a+(b-a)*q;setCam(f(w.from.tx,w.to.tx),f(w.from.tz,w.to.tz),f(w.from.d,w.to.d),f(w.from.p,w.to.p),f(w.from.a,w.to.a));if(k>=1)W3.tw=null}
  W3.ctl.update();
  const tg=W3.ctl.target,cx=Math.max(-190,Math.min(190,tg.x)),cz=Math.max(-100,Math.min(110,tg.z));if(cx!==tg.x||cz!==tg.z){W3.cam.position.x+=cx-tg.x;W3.cam.position.z+=cz-tg.z;tg.x=cx;tg.z=cz}
- const bn=W3.bunny;if(bn){if(W3.bt){const b=W3.bt;b.t+=dt/.9;const k=Math.min(1,b.t);bn.position.lerpVectors(b.from,b.to,k);bn.position.y+=Math.sin(k*Math.PI)*(2+b.from.distanceTo(b.to)*.12);if(k>=1)W3.bt=null}bn.rotation.y=Math.atan2(W3.cam.position.x-bn.position.x,W3.cam.position.z-bn.position.z);bn.scale.y=1.5*(1+Math.sin(t*2.2)*.02);W3.bunnyEars[0].rotation.z=Math.sin(t*1.7)*.12;W3.bunnyEars[1].rotation.z=-Math.sin(t*1.7+1)*.12}
  const d=W3.cam.position.distanceTo(tg);W3.beacons.visible=d>150;
  W3.plants.children.forEach(g=>{const u=g.userData;
   if(u.grow<1){u.grow=Math.min(1,u.grow+dt*1.5);const k=u.grow-1;g.scale.setScalar(Math.max(.01,u.sc*(1+2.7*k*k*k+1.7*k*k)))}
@@ -993,16 +984,6 @@ function wdecor(){if(!W3||!W3.items)return;const dm=new THREE.Object3D(),Z=.0001
   pl(green,.7+it.b*.8,it.x,it.y,it.z,W3.dm[0]);pl(green&&it.b>.45,.75,it.x+.5,it.y,it.z+.3,W3.dm[1]);pl(dry&&it.a<.6,.8+it.b*.6,it.x,it.y,it.z,W3.dm[2]);pl(dry&&it.a>=.6,.7+it.b*.5,it.x,it.y,it.z,W3.dm[3])});
  W3.dm.forEach(m=>{m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true})}
 
-function bunny(m,s){const o='#8a5560',w='#fffaf7',pk='#ffb3c6',sw=' stroke="'+o+'" stroke-width="1.4"';
- const eyes=m==='sleep'?'<path d="M23 37q2.5 2.5 5 0M35 37q2.5 2.5 5 0" stroke="'+o+'" stroke-width="1.4" fill="none" stroke-linecap="round"/>':'<circle cx="26.5" cy="37" r="2" fill="#5b3a40"/><circle cx="37.5" cy="37" r="2" fill="#5b3a40"/><circle cx="27.1" cy="36.3" r=".7" fill="#fff"/><circle cx="38.1" cy="36.3" r=".7" fill="#fff"/>';
- const arms=m==='cheer'?'<ellipse cx="17" cy="50" rx="3.2" ry="5.5" transform="rotate(-25 17 50)" fill="'+w+'"'+sw+'/><ellipse cx="47" cy="50" rx="3.2" ry="5.5" transform="rotate(25 47 50)" fill="'+w+'"'+sw+'/>':'<ellipse cx="25" cy="64" rx="4" ry="3" fill="'+w+'"'+sw+'/><ellipse cx="39" cy="64" rx="4" ry="3" fill="'+w+'"'+sw+'/>';
- const ex=m==='sleep'?'<text x="49" y="24" font-size="9" fill="'+o+'">z</text><text x="54" y="15" font-size="7" fill="'+o+'">z</text>':m==='cheer'?'<text x="4" y="22" font-size="11" fill="#f59ab5">\u2726</text><text x="50" y="18" font-size="10" fill="#ffb48a">\u2726</text>':'';
- return'<svg viewBox="0 0 64 72" width="'+s+'" height="'+Math.round(s*72/64)+'" aria-hidden="true" style="flex:none"><ellipse cx="22" cy="17" rx="6" ry="15" transform="rotate(-8 22 17)" fill="'+w+'"'+sw+'/><ellipse cx="22" cy="18" rx="2.8" ry="10" transform="rotate(-8 22 18)" fill="'+pk+'"/><ellipse cx="42" cy="17" rx="6" ry="15" transform="rotate(8 42 17)" fill="'+w+'"'+sw+'/><ellipse cx="42" cy="18" rx="2.8" ry="10" transform="rotate(8 42 18)" fill="'+pk+'"/><ellipse cx="32" cy="57" rx="15" ry="13" fill="'+w+'"'+sw+'/><ellipse cx="32" cy="38" rx="16" ry="14" fill="'+w+'"'+sw+'/>'+eyes+'<ellipse cx="20.5" cy="43" rx="4" ry="2.6" fill="'+pk+'" opacity=".75"/><ellipse cx="43.5" cy="43" rx="4" ry="2.6" fill="'+pk+'" opacity=".75"/><ellipse cx="32" cy="41.5" rx="1.7" ry="1.2" fill="#ef8fab"/><path d="M29.5 44q2.5 2.2 5 0" stroke="'+o+'" stroke-width="1.1" fill="none" stroke-linecap="round"/>'+arms+ex+'</svg>'}
-let chT;function cheer(){const m=$('mascot');if(!m)return;m.innerHTML=bunny('cheer',58);clearTimeout(chT);chT=setTimeout(()=>{m.innerHTML=bunny('hi',58)},1800)}
-$('mascot').innerHTML=bunny('hi',58);
-function bunnyTo(r,instant){if(!W3||!W3.bunny)return;const to=new THREE.Vector3(r.c[0]-(r.tiny?0:2.2),r.H,r.c[1]+(r.tiny?0:1.6));if(instant){W3.bunny.position.copy(to);return}W3.bt={t:0,from:W3.bunny.position.clone(),to}}
-function bunnyHi(){const m=['Let\u2019s water some leads! \u2740','You\u2019ve got this \u273f','One more call? I believe in you','Sakura season is every day here','Hop hop, time to connect!'];toast(m[Math.floor(Math.random()*m.length)]);W3.bt={t:0,from:W3.bunny.position.clone(),to:W3.bunny.position.clone()};cheer()}
-
 const REASONS=[['closed','Closed'],['notneeded','Don\u2019t need anymore'],['blocked','Blocked'],['unqual','Unqualified']];
 let lastDel=null,undoT;
 function removeLead(id,reason,keep){const i=leads.findIndex(x=>x.id===id);if(i<0)return;const l=leads[i];lastDel={l:JSON.parse(JSON.stringify(l)),i};leads.splice(i,1);save();if(window.HanamiSupabase)window.HanamiSupabase.deleteLead(id);
@@ -1028,7 +1009,7 @@ function boardView(){
  if(mode!=='cloud')h+='<div class="banner"><div class="meta">You\u2019re on the local version, so there\u2019s no shared board here. This is just your own score.</div></div>';
  else if(L.length<2)h+='<div class="banner"><h2>Just you so far</h2><div class="meta">Share this page with your team from the Share menu (invite them as Contributors). They show up here the moment they open it. Everyone keeps their own private leads, and only these counts are shared.</div></div>';
  h+=L.map((r,i)=>{const b=r.b,p=profs[b.id],me=b.id===mine.id;
-  return'<div class="card'+(me?' next':'')+'"><div class="cr"><div class="row" style="flex-wrap:nowrap;gap:10px"><b style="width:28px;text-align:center">'+(i<3?['\ud83e\udd47','\ud83e\udd48','\ud83e\udd49'][i]:i+1)+'</b><span class="av">'+(p&&p.avatarUrl?'<img src="'+e(p.avatarUrl)+'" alt="">':e(ini(bname(b))))+'</span><div><div class="name">'+e(bname(b))+(me?' <span class="chip">you</span>':'')+'</div><div class="meta">'+e(b.lv||'Seed')+' \u00b7 \ud83c\udf31 '+r.x.s+' \u00b7 \ud83d\udca7 '+r.x.t+' \u00b7 \ud83c\udf51 '+r.x.d+'</div></div></div><div class="row" style="flex-wrap:nowrap;gap:8px">'+(i===0&&val(r)>0?bunny('cheer',42):'')+'<div style="text-align:right"><div class="name" style="color:var(--pinkd)">'+val(r)+'</div><div class="meta">'+ml+'</div></div></div></div><div class="bar"><i style="width:'+Math.round(val(r)/top*100)+'%"></i></div></div>'}).join('');
+  return'<div class="card'+(me?' next':'')+'"><div class="cr"><div class="row" style="flex-wrap:nowrap;gap:10px"><b style="width:28px;text-align:center">'+(i<3?['\ud83e\udd47','\ud83e\udd48','\ud83e\udd49'][i]:i+1)+'</b><span class="av">'+(p&&p.avatarUrl?'<img src="'+e(p.avatarUrl)+'" alt="">':e(ini(bname(b))))+'</span><div><div class="name">'+e(bname(b))+(me?' <span class="chip">you</span>':'')+'</div><div class="meta">'+e(b.lv||'Seed')+' \u00b7 \ud83c\udf31 '+r.x.s+' \u00b7 \ud83d\udca7 '+r.x.t+' \u00b7 \ud83c\udf51 '+r.x.d+'</div></div></div><div class="row" style="flex-wrap:nowrap;gap:8px"><div style="text-align:right"><div class="name" style="color:var(--pinkd)">'+val(r)+'</div><div class="meta">'+ml+'</div></div></div></div><div class="bar"><i style="width:'+Math.round(val(r)/top*100)+'%"></i></div></div>'}).join('');
  h+='<div class="meta" style="margin-top:6px">Garden score = seeds \u00d7 1 + follow-ups \u00d7 2 + demos \u00d7 10. Follow-ups count every time you reach out or retry a lead.</div>';
  h+='<div class="lbl">Your team name</div><div class="row"><input id="nick" maxlength="24" placeholder="e.g. Charchit" value="'+e(game.nick||'')+'" style="max-width:240px"><button class="sm p" data-nick="1">Save</button></div><div class="meta" style="margin-top:6px">Shown on the board instead of your account name.</div>';
  return h}

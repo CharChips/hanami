@@ -140,12 +140,6 @@ class HanamiSupabaseSync {
   // --- UI BINDINGS & AUTH PAGE ---
 
   bindAuthUI() {
-    // Mascot on auth page
-    const authMascot = document.getElementById('authMascot');
-    if (authMascot && typeof bunny === 'function') {
-      authMascot.innerHTML = bunny('hi', 64);
-    }
-
     // Tabs
     const tabIn = document.getElementById('tabSignInBtn');
     const tabUp = document.getElementById('tabSignUpBtn');
