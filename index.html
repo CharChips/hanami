@@ -6,7 +6,7 @@
 <title>Hanami · lead garden</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=20261120-invite-password-signin"></script>
+<script src="supabase-sync.js?v=20261123-campaign-access"></script>
 <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("hanami_theme")||"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}</script>
 <style>
 :root,:root[data-theme="dark"]{--bg:#1a1a1b;--side:#161617;--card:#232325;--ink:#ececf0;--mute:#8d8d97;--line:#2d2d30;--pink:#8b86f0;--pinkd:#a8a4ff;--pinkl:rgba(139,134,240,.14);--leaf:#5fcf9a;--leafl:rgba(95,207,154,.14);--warn:#e5b45c;--warnl:rgba(229,180,92,.14);--lav:#8b86f0;--sky:#6aa8ff;--red:#ef7a85;--redl:rgba(239,122,133,.14);--fruit:#ffb08a;--field:#1e1e20;color-scheme:dark}
@@ -349,6 +349,7 @@ svg.wilt{transform:rotate(-9deg);transform-origin:50% 100%;filter:saturate(.3);o
     <div><label>Email</label><input id="f-email" type="email" placeholder="name@company.com"></div>
     <div><label>Phone</label><input id="f-phone" type="tel" placeholder="+1 555 123 4567"></div>
     <div><label>Campaign</label><select id="f-campaign" required><option value="">Choose a campaign</option></select></div>
+    <div><label>Lead access</label><select id="f-visibility"><option value="team">Share with campaign team</option><option value="private">Only me and workspace admin</option></select></div>
     <div><label>Country</label><select id="f-country"></select></div>
     <div><label>Status</label><select id="f-status"><option value="spotted">Spotted, not reached yet</option><option value="reached">Already reached out</option><option value="callback">They asked me to call back</option></select></div>
     <div><label>Follow up on (optional)</label><input id="f-due" type="datetime-local"></div>
@@ -456,7 +457,7 @@ const C=[],FOCUS=['SE Asia','Africa','South Asia'],REGS=['SE Asia','Africa','Sou
 'Oceania|Australia=Australia/Sydney,Fiji=Pacific/Fiji,New Zealand=Pacific/Auckland,Papua New Guinea=Pacific/Port_Moresby,Samoa=Pacific/Apia,Solomon Islands=Pacific/Guadalcanal,Tonga=Pacific/Tongatapu,Vanuatu=Pacific/Efate').split(';').forEach(g=>{const[r,l]=g.split('|');l.split(',').forEach(p=>{const[n,z]=p.split('=');C.push([n,z,r])})});
 const ST={spotted:'Spotted',reached:'Reached out',callback:'Call back',demo:'Demo booked',handed:'Handed to AE',dropped:'Dropped'};
 const ACTIVE=['spotted','reached','callback'];
-let leads=[],campaigns=[],activeCampaignId='all',campaignNew=false,tab='today',filt='active',q='',open=null,now=new Date(),mode='device',ref=null,col=null,snap=new Map(),reg='focus',planDay=null,game={xp:0,streak:0},skipped=new Set(),Q=null;
+let leads=[],campaigns=[],activeCampaignId='all',campaignNew=false,campaignAccessId=null,campaignAccessData={profiles:[],members:[]},tab='today',filt='active',q='',open=null,now=new Date(),mode='device',ref=null,col=null,snap=new Map(),reg='focus',planDay=null,game={xp:0,streak:0},skipped=new Set(),Q=null;
 
 const e=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const $=id=>document.getElementById(id);
@@ -503,7 +504,7 @@ function card(l,isNext,extra){
  const c=C.find(x=>x[0]===l.country),cs=c?cstat(c[1]):null;
  const od=l.due&&new Date(l.due)<=now;
  const link=l.link?'<a href="'+e(l.link)+'" target="_blank" rel="noopener">'+e(l.name)+'</a>':e(l.name);
- let h='<div class="card'+(isNext?' next':'')+'"><div class="cr"><div class="row" style="flex-wrap:nowrap;gap:10px">'+avatar(l,1)+'<div><div class="name">'+link+'</div><div class="meta">'+e(l.role||'')+(l.role&&l.country?' · ':'')+e(l.country||'')+'</div></div></div><div class="row">';
+ let h='<div class="card'+(isNext?' next':'')+'"><div class="cr"><div class="row" style="flex-wrap:nowrap;gap:10px">'+avatar(l,1)+'<div><div class="name">'+link+'</div><div class="meta">'+e(l.role||'')+(l.role&&l.country?' · ':'')+e(l.country||'')+'</div><div class="meta">Added by '+e(l.createdByName||'Before tracking')+' · '+(l.visibility==='private'?'Private to creator':'Shared with campaign team')+'</div></div></div><div class="row">';
  h+='<span class="chip m">'+ST[l.status]+'</span>';
  if(l.due)h+='<span class="chip '+(od?'':'g')+'" style="'+(od?'background:var(--warnl);color:var(--warn)':'')+'">'+(od?'Due · ':'')+dueLbl(l.due)+'</span>';
  if(cs&&ACTIVE.includes(l.status))h+='<span class="chip '+cls(cs.s)+'">'+e(l.country)+' '+t12(cs.m)+' · '+cs.lbl+'</span>';
@@ -587,14 +588,15 @@ function garden(){
  const scope='<div class="row" style="justify-content:space-between;margin-bottom:10px"><div><label for="campaignFilter">Campaign</label><select id="campaignFilter" style="min-width:220px"><option value="all">All campaigns</option><option value="none">Unassigned</option>'+campaigns.map(c=>'<option value="'+e(c.id)+'"'+(activeCampaignId===c.id?' selected':'')+'>'+e(c.name)+'</option>').join('')+'</select></div><button class="sm" data-tabgo="campaigns">Manage campaigns</button></div>';
  a=a.filter(l=>activeCampaignId==='all'||(activeCampaignId==='none'?!l.campaignId:l.campaignId===activeCampaignId));
  const groups={};a.forEach(l=>{const k=l.country||'No country';(groups[k]=groups[k]||[]).push(l)});
- const sheet=Object.keys(groups).sort((x,y)=>x.localeCompare(y)).map(country=>'<div class="country-head"><span>'+e(country)+'</span><span>'+groups[country].length+' leads</span></div><table class="sheet"><thead><tr><th>Name</th><th>Phone</th><th>LinkedIn</th><th>Email</th><th>Campaign</th><th>Role · Company</th><th>Status</th></tr></thead><tbody>'+groups[country].map(l=>'<tr><td><input aria-label="Lead name" data-cell="name" data-id="'+e(l.id)+'" value="'+e(l.name)+'"></td><td><input aria-label="Phone" data-cell="phone" data-id="'+e(l.id)+'" value="'+e(l.phone||'')+'" placeholder="Add phone"></td><td><input aria-label="LinkedIn URL" data-cell="link" data-id="'+e(l.id)+'" value="'+e(l.link||'')+'" placeholder="LinkedIn profile URL"></td><td><input aria-label="Email" data-cell="email" data-id="'+e(l.id)+'" value="'+e(l.email||'')+'" placeholder="Add email"></td><td><select aria-label="Campaign" data-cell="campaignId" data-id="'+e(l.id)+'">'+campaigns.map(c=>'<option value="'+e(c.id)+'"'+(c.id===l.campaignId?' selected':'')+'>'+e(c.name)+'</option>').join('')+'</select></td><td>'+e(l.role||'')+'</td><td>'+e(ST[l.status]||'Spotted')+'</td></tr>').join('')+'</tbody></table>').join('');
+ const sheet=Object.keys(groups).sort((x,y)=>x.localeCompare(y)).map(country=>'<div class="country-head"><span>'+e(country)+'</span><span>'+groups[country].length+' leads</span></div><table class="sheet"><thead><tr><th>Name</th><th>Phone</th><th>LinkedIn</th><th>Email</th><th>Campaign</th><th>Role · Company</th><th>Added by</th><th>Access</th><th>Status</th></tr></thead><tbody>'+groups[country].map(l=>'<tr><td><input aria-label="Lead name" data-cell="name" data-id="'+e(l.id)+'" value="'+e(l.name)+'"></td><td><input aria-label="Phone" data-cell="phone" data-id="'+e(l.id)+'" value="'+e(l.phone||'')+'" placeholder="Add phone"></td><td><input aria-label="LinkedIn URL" data-cell="link" data-id="'+e(l.id)+'" value="'+e(l.link||'')+'" placeholder="LinkedIn profile URL"></td><td><input aria-label="Email" data-cell="email" data-id="'+e(l.id)+'" value="'+e(l.email||'')+'" placeholder="Add email"></td><td><select aria-label="Campaign" data-cell="campaignId" data-id="'+e(l.id)+'">'+campaigns.map(c=>'<option value="'+e(c.id)+'"'+(c.id===l.campaignId?' selected':'')+'>'+e(c.name)+'</option>').join('')+'</select></td><td>'+e(l.role||'')+'</td><td>'+e(l.createdByName||'Before tracking')+'</td><td><select aria-label="Lead access" data-cell="visibility" data-id="'+e(l.id)+'"><option value="team"'+(l.visibility!=='private'?' selected':'')+'>Team</option><option value="private"'+(l.visibility==='private'?' selected':'')+'>Private</option></select></td><td>'+e(ST[l.status]||'Spotted')+'</td></tr>').join('')+'</tbody></table>').join('');
  return scope+'<div class="meta">A compact contact sheet grouped by country. Click a cell to update contact details.</div><div class="sheet-wrap">'+(sheet||'<div class="empty">No leads match this view.</div>')+'</div>'}
 
 function campaignsView(){let h='<div class="cr"><div><h2>Campaigns</h2><div class="meta">Keep different types of prospecting work in separate spaces.</div></div><button class="btn" data-camp="new">+ New campaign</button></div>';
  if(campaignNew)h+='<div class="card" style="margin-top:12px"><div class="grid"><div><label>Campaign name</label><input id="campName" placeholder="e.g. India HR leaders"></div><div><label>What is this work about?</label><input id="campDescription" placeholder="Audience, region, or goal"></div></div><div class="row" style="margin-top:10px"><button class="btn" data-camp="save">Create campaign</button><button class="sm" data-camp="cancel">Cancel</button></div></div>';
  h+='<div class="chips" style="margin-top:14px"><button class="sm'+(activeCampaignId==='all'?' p':'')+'" data-campfilter="all">All leads</button><button class="sm'+(activeCampaignId==='none'?' p':'')+'" data-campfilter="none">Unassigned leads</button></div>';
  if(!campaigns.length)return h+'<div class="empty">No campaigns yet. Create one to start a separate workspace.</div>';
- return h+campaigns.map(c=>'<div class="card camp-card"><div class="grow"><div class="name">'+e(c.name)+'</div><div class="meta">'+e(c.description||'')+' · '+leads.filter(l=>l.campaignId===c.id).length+' leads</div></div><button class="sm p" data-camp="open" data-id="'+e(c.id)+'">Open leads</button></div>').join('')}
+ const isOwner=window.HanamiSupabase?.user?.email?.toLowerCase()==='charchit.sahoo@peoplehum.com';
+ return h+campaigns.map(c=>{const openAccess=isOwner&&campaignAccessId===c.id;let access='';if(openAccess){const memberMap=new Map(campaignAccessData.members.map(m=>[m.user_id,m]));const rows=campaignAccessData.profiles.map(p=>{const m=memberMap.get(p.user_id),checked=!!m,role=m?.role||p.role||'collaborator',name=p.nickname||p.email?.split('@')[0]||'Teammate';return '<label class="row" style="justify-content:space-between;padding:8px;border-bottom:1px solid var(--line)"><span><input type="checkbox" data-camp-member="'+e(p.user_id)+'"'+(checked?' checked':'')+'> <b>'+e(name)+'</b> <span class="meta">'+e(p.email||'')+'</span></span><select aria-label="Campaign role for '+e(name)+'" data-camp-role="'+e(p.user_id)+'"'+(checked?'':' disabled')+'><option value="collaborator"'+(role==='collaborator'?' selected':'')+'>Can edit</option><option value="viewer"'+(role==='viewer'?' selected':'')+'>View only</option></select></label>'}).join('');access='<div style="grid-column:1/-1;border-top:1px solid var(--line);padding-top:10px"><div class="meta">Choose who can access this campaign. The workspace admin always has access.</div>'+(rows||'<div class="empty">No other team accounts yet. Invite someone first.</div>')+'</div>'}return '<div class="card camp-card" style="flex-wrap:wrap"><div class="grow"><div class="name">'+e(c.name)+'</div><div class="meta">'+e(c.description||'')+' · '+leads.filter(l=>l.campaignId===c.id).length+' leads</div></div><div class="row"><button class="sm p" data-camp="open" data-id="'+e(c.id)+'">Open leads</button>'+(isOwner?'<button class="sm" data-camp="access" data-id="'+e(c.id)+'">'+(openAccess?'Close access':'Manage access')+'</button>':'')+'</div>'+access+'</div>'}).join('')}
 
 function where(){
  const mine=lmin(IST,now),inH=mine>=600&&mine<1080;
@@ -640,7 +642,7 @@ document.addEventListener('click',async ev=>{
  if(t.dataset.addc){$('addForm').classList.add('on');$('f-country').value=t.dataset.addc;window.scrollTo(0,0);return}
  if(t.dataset.q)return qclick(t);
  if(t.dataset.tabgo){tab=t.dataset.tabgo;return render()}
- if(t.dataset.camp){if(t.dataset.camp==='new'){campaignNew=true;return render()}if(t.dataset.camp==='cancel'){campaignNew=false;return render()}if(t.dataset.camp==='open'){activeCampaignId=t.dataset.id;tab='garden';return render()}if(t.dataset.camp==='save'){const name=$('campName').value.trim();if(!name){$('campName').focus();return}const c={id:crypto.randomUUID(),name,description:$('campDescription').value.trim(),status:'active',created_at:new Date().toISOString()};campaigns.unshift(c);try{localStorage.setItem('hanami_campaigns',JSON.stringify(campaigns))}catch(x){}campaignNew=false;if(window.HanamiSupabase)await window.HanamiSupabase.saveCampaign(c);activeCampaignId=c.id;tab='garden';return render()}}
+ if(t.dataset.camp){if(t.dataset.camp==='new'){campaignNew=true;return render()}if(t.dataset.camp==='cancel'){campaignNew=false;return render()}if(t.dataset.camp==='open'){activeCampaignId=t.dataset.id;tab='garden';return render()}if(t.dataset.camp==='access'){campaignAccessId=campaignAccessId===t.dataset.id?null:t.dataset.id;if(campaignAccessId&&window.HanamiSupabase){campaignAccessData=await window.HanamiSupabase.loadCampaignAccess(campaignAccessId)}return render()}if(t.dataset.camp==='save'){const name=$('campName').value.trim();if(!name){$('campName').focus();return}const c={id:crypto.randomUUID(),name,description:$('campDescription').value.trim(),status:'active',created_at:new Date().toISOString()};campaigns.unshift(c);try{localStorage.setItem('hanami_campaigns',JSON.stringify(campaigns))}catch(x){}campaignNew=false;if(window.HanamiSupabase)await window.HanamiSupabase.saveCampaign(c);activeCampaignId=c.id;tab='garden';return render()}}
  if(t.dataset.campfilter){activeCampaignId=t.dataset.campfilter;return render()}
  if(t.dataset.tab){tab=t.dataset.tab;return render()}
  if(t.dataset.f){filt=t.dataset.f;return render()}
@@ -672,7 +674,7 @@ document.addEventListener('click',async ev=>{
  else if(a==='close'){open=null}
  save();render()});
 document.addEventListener('input',ev=>{if(ev.target.id==='q'){q=ev.target.value;render()}});
-document.addEventListener('change',ev=>{const x=ev.target;if(x.id==='campaignFilter'){activeCampaignId=x.value;render();return}if(x.dataset.cell){const l=find(x.dataset.id);if(!l)return;l[x.dataset.cell]=x.value.trim();save()}});
+document.addEventListener('change',async ev=>{const x=ev.target;if(x.id==='campaignFilter'){activeCampaignId=x.value;render();return}if(x.dataset.campMember||x.dataset.campRole){if(!window.HanamiSupabase||!campaignAccessId)return;const userId=x.dataset.campMember||x.dataset.campRole;const role=document.querySelector('[data-camp-role="'+CSS.escape(userId)+'"]')?.value||'collaborator';await window.HanamiSupabase.setCampaignMember(campaignAccessId,userId,x.dataset.campRole?true:x.checked,role);campaignAccessData=await window.HanamiSupabase.loadCampaignAccess(campaignAccessId);render();return}if(x.dataset.cell){const l=find(x.dataset.id);if(!l)return;l[x.dataset.cell]=x.value.trim();save()}});
 
 $('addBtn').onclick=()=>$('addForm').classList.toggle('on');
 $('cancelAdd').onclick=()=>$('addForm').classList.remove('on');
@@ -683,10 +685,12 @@ $('saveLead').onclick=()=>{
  const link=$('f-link').value.trim(),name=($('f-name').value.trim()||nameFrom(link)||'Unnamed profile');
  if(!link&&!$('f-name').value.trim()){$('f-link').focus();return}
  if(!$('f-campaign').value){$('f-campaign').focus();toast('Choose a campaign for this lead');return}
- const l={id:uid(),name,link,phone:$('f-phone').value.trim(),email:$('f-email').value.trim(),role:$('f-role').value.trim(),country:$('f-country').value,status:$('f-status').value,due:$('f-due').value,note:$('f-note').value.trim(),next:$('f-next').value.trim(),hot:!!$('f-hot').value,campaignId:$('f-campaign').value,created:Date.now(),log:[]};
+ if($('f-visibility').value==='private'&&window.HanamiSupabase&&!window.HanamiSupabase.caps.leadPrivacy){toast('Private leads need the campaign privacy update enabled first.');return}
+ const sync=window.HanamiSupabase,creator=sync?.user,creatorName=creator?.user_metadata?.nickname||creator?.user_metadata?.name||creator?.email?.split('@')[0]||'You';
+ const l={id:uid(),name,link,phone:$('f-phone').value.trim(),email:$('f-email').value.trim(),role:$('f-role').value.trim(),country:$('f-country').value,status:$('f-status').value,due:$('f-due').value,note:$('f-note').value.trim(),next:$('f-next').value.trim(),hot:!!$('f-hot').value,campaignId:$('f-campaign').value,visibility:$('f-visibility').value,createdBy:creator?.id||null,createdByName:creatorName,created:Date.now(),log:[]};
  logIt(l,'Added as '+ST[l.status].toLowerCase());
  leads.unshift(l);stat('s');award(4,'New lead planted');
- ['f-link','f-name','f-role','f-email','f-phone','f-due','f-note','f-next'].forEach(i=>$(i).value='');$('f-hot').value='';delete $('f-name').dataset.touched;$('f-country').value='';$('f-status').value='spotted';
+ ['f-link','f-name','f-role','f-email','f-phone','f-due','f-note','f-next'].forEach(i=>$(i).value='');$('f-hot').value='';$('f-visibility').value='team';delete $('f-name').dataset.touched;$('f-country').value='';$('f-status').value='spotted';
  $('addForm').classList.remove('on');tab='today';save();render()};
 
 /* game */

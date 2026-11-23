@@ -35,6 +35,7 @@ class HanamiSupabaseSync {
     this.caps = {
       leadsLog: false,
       leadsCampaign: false,
+      leadPrivacy: false,
       leadContacts: false,
       companiesLog: false,
       companiesDone: false,
@@ -77,6 +78,7 @@ class HanamiSupabaseSync {
           }
           this.showApp();
           toast('Welcome, ' + (this.user.user_metadata?.nickname || this.user.user_metadata?.name || this.user.email));
+          await this.detectCapabilities();
           await this.loadAll();
         } else if (event === 'SIGNED_OUT') {
           this.user = null;
@@ -833,6 +835,11 @@ class HanamiSupabaseSync {
     } catch (e) { this.caps.leadsCampaign = false; }
 
     try {
+      const { error } = await this.client.from('leads').select('created_by,created_by_name,visibility').limit(1);
+      this.caps.leadPrivacy = !error;
+    } catch (e) { this.caps.leadPrivacy = false; }
+
+    try {
       const { error } = await this.client.from('leads').select('email,phone').limit(1);
       this.caps.leadContacts = !error;
     } catch (e) { this.caps.leadContacts = false; }
@@ -897,6 +904,37 @@ class HanamiSupabaseSync {
     if (error) { campaigns = campaigns.filter(c => c.id !== campaign.id); try { localStorage.setItem('hanami_campaigns', JSON.stringify(campaigns)); } catch (e) {} toast('Could not save campaign: ' + error.message); render(); }
   }
 
+  async loadCampaignAccess(campaignId) {
+    if (!this.client || this.user?.email?.toLowerCase() !== 'charchit.sahoo@peoplehum.com') return { profiles: [], members: [] };
+    const [profilesResult, membersResult] = await Promise.all([
+      this.client.from('profiles').select('user_id,email,nickname,role').order('nickname', { ascending: true }),
+      this.client.from('campaign_members').select('user_id,role').eq('campaign_id', campaignId)
+    ]);
+    if (profilesResult.error || membersResult.error) {
+      toast('Could not load campaign access: ' + (profilesResult.error || membersResult.error).message);
+      return { profiles: [], members: [] };
+    }
+    return {
+      profiles: (profilesResult.data || []).filter(p => p.user_id !== this.user.id && p.role !== 'owner'),
+      members: membersResult.data || []
+    };
+  }
+
+  async setCampaignMember(campaignId, userId, allowed, role = 'collaborator') {
+    if (!this.client || this.user?.email?.toLowerCase() !== 'charchit.sahoo@peoplehum.com') {
+      throw new Error('Only the workspace admin can change campaign access.');
+    }
+    const result = allowed
+      ? await this.client.from('campaign_members').upsert({ campaign_id: campaignId, user_id: userId, role: role === 'viewer' ? 'viewer' : 'collaborator' }, { onConflict: 'campaign_id,user_id' })
+      : await this.client.from('campaign_members').delete().eq('campaign_id', campaignId).eq('user_id', userId);
+    if (result.error) {
+      toast('Could not update campaign access: ' + result.error.message);
+      return false;
+    }
+    toast(allowed ? 'Campaign access updated.' : 'Campaign access removed.');
+    return true;
+  }
+
   // --- LEADS ---
 
   async loadLeads() {
@@ -945,6 +983,9 @@ class HanamiSupabaseSync {
       hot: !!row.hot,
       pic: row.photo || '',
       campaignId: row.campaign_id || null,
+      visibility: row.visibility || 'team',
+      createdBy: row.created_by || null,
+      createdByName: row.created_by_name || (row.created_by ? 'Team member' : 'Before tracking'),
       log: Array.isArray(row.log) ? row.log : [],
       created: row.created_at ? new Date(row.created_at).getTime() : Date.now()
     };
@@ -966,6 +1007,11 @@ class HanamiSupabaseSync {
       hot: !!l.hot,
       photo: l.pic || null
     };
+    if (this.caps.leadPrivacy) {
+      row.visibility = l.visibility === 'private' ? 'private' : 'team';
+      row.created_by = l.createdBy || this.user?.id || null;
+      row.created_by_name = l.createdByName || this.user?.user_metadata?.nickname || this.user?.user_metadata?.name || this.user?.email?.split('@')[0] || 'Team member';
+    }
     if (this.user) {
       row.user_id = this.user.id;
     }
@@ -1258,7 +1304,6 @@ class HanamiSupabaseSync {
       this.client
         .channel('hanami_realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, payload => {
-          if (this.user && payload.new && payload.new.user_id && payload.new.user_id !== this.user.id) return;
           this.handleRemoteLeadChange(payload);
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'companies' }, payload => {
@@ -1267,6 +1312,9 @@ class HanamiSupabaseSync {
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
           this.loadLeaderboard();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'campaign_members' }, () => {
+          this.loadAll();
         })
         .subscribe();
     } catch (err) {
