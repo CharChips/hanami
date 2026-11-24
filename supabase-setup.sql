@@ -75,6 +75,8 @@ create table if not exists public.companies (
   campaign_id text references public.campaigns(id) on delete set null,
   name text not null,
   country text,
+  sector text,
+  hq_phone text,
   status text default 'building',
   note text,
   log jsonb default '[]'::jsonb,
@@ -94,10 +96,14 @@ alter table public.leads add column if not exists campaign_id text references pu
 alter table public.leads add column if not exists log jsonb default '[]'::jsonb;
 alter table public.leads add column if not exists hot boolean default false;
 alter table public.leads add column if not exists photo text;
+alter table public.leads add column if not exists company_id text references public.companies(id) on delete set null;
 
 alter table public.companies add column if not exists campaign_id text references public.campaigns(id) on delete set null;
 alter table public.companies add column if not exists log jsonb default '[]'::jsonb;
 alter table public.companies add column if not exists done text;
+alter table public.companies add column if not exists sector text;
+alter table public.companies add column if not exists hq_phone text;
+create index if not exists leads_company_id_idx on public.leads(company_id);
 alter table public.invitations add column if not exists invited_by_id uuid references auth.users(id) on delete cascade;
 alter table public.invitations add column if not exists expires_at timestamptz default (now() + interval '7 days');
 alter table public.invitations add column if not exists accepted_at timestamptz;

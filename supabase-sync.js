@@ -40,6 +40,8 @@ class HanamiSupabaseSync {
       companiesLog: false,
       companiesDone: false,
       companiesCampaign: false,
+      companiesDetails: false,
+      leadsCompany: false,
       profilesToday: false,
       profilesRole: false
     };
@@ -839,6 +841,11 @@ class HanamiSupabaseSync {
     } catch (e) { this.caps.leadContacts = false; }
 
     try {
+      const { error } = await this.client.from('leads').select('company_id').limit(1);
+      this.caps.leadsCompany = !error;
+    } catch (e) { this.caps.leadsCompany = false; }
+
+    try {
       const { error } = await this.client.from('companies').select('log').limit(1);
       this.caps.companiesLog = !error;
     } catch (e) { this.caps.companiesLog = false; }
@@ -852,6 +859,11 @@ class HanamiSupabaseSync {
       const { error } = await this.client.from('companies').select('campaign_id').limit(1);
       this.caps.companiesCampaign = !error;
     } catch (e) { this.caps.companiesCampaign = false; }
+
+    try {
+      const { error } = await this.client.from('companies').select('sector,hq_phone').limit(1);
+      this.caps.companiesDetails = !error;
+    } catch (e) { this.caps.companiesDetails = false; }
 
     try {
       const { error } = await this.client.from('profiles').select('today').limit(1);
@@ -977,6 +989,7 @@ class HanamiSupabaseSync {
       hot: !!row.hot,
       pic: row.photo || '',
       campaignId: row.campaign_id || null,
+      companyId: this.caps.leadsCompany ? (row.company_id || null) : ((Array.isArray(row.log) && row.log.find(x => x.kind === 'company_link')?.companyId) || null),
       visibility: row.visibility || 'team',
       createdBy: row.created_by || null,
       createdByName: row.created_by_name || (row.created_by ? 'Team member' : 'Before tracking'),
@@ -1012,8 +1025,14 @@ class HanamiSupabaseSync {
     if (this.caps.leadsLog && l.log) {
       row.log = l.log;
     }
-    if (this.caps.leadsCampaign && l.campaignId) {
-      row.campaign_id = l.campaignId;
+    if (this.caps.leadsCampaign) {
+      row.campaign_id = l.campaignId || null;
+    }
+    if (this.caps.leadsCompany) {
+      row.company_id = l.companyId || null;
+    }
+    if (this.caps.leadsLog && l.companyId && !(row.log || []).some(x => x.kind === 'company_link')) {
+      row.log = [...(row.log || []), { t: new Date().toISOString(), x: 'Company linked', kind: 'company_link', companyId: l.companyId }];
     }
     return row;
   }
@@ -1102,6 +1121,8 @@ class HanamiSupabaseSync {
       id: String(row.id || (typeof uid === 'function' ? uid() : Math.random().toString(36).slice(2, 9))),
       name: row.name || 'Unnamed company',
       country: row.country || '',
+      sector: row.sector || '',
+      hqPhone: row.hq_phone || '',
       status: status,
       note: row.note || '',
       campaignId: row.campaign_id || null,
@@ -1128,8 +1149,12 @@ class HanamiSupabaseSync {
     if (this.caps.companiesDone && c.done) {
       row.done = c.done;
     }
-    if (this.caps.companiesCampaign && c.campaignId) {
-      row.campaign_id = c.campaignId;
+    if (this.caps.companiesCampaign) {
+      row.campaign_id = c.campaignId || null;
+    }
+    if (this.caps.companiesDetails) {
+      row.sector = c.sector || null;
+      row.hq_phone = c.hqPhone || null;
     }
     return row;
   }
