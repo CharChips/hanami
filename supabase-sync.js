@@ -1280,7 +1280,7 @@ class HanamiSupabaseSync {
             tot: { s: Math.round((p.xp || 0) * 0.4), t: Math.round((p.xp || 0) * 0.3), d: Math.round((p.xp || 0) * 0.1) },
             days: {}
           }));
-          if (typeof tab !== 'undefined' && tab === 'board' && typeof render === 'function') {
+          if (typeof tab !== 'undefined' && (tab === 'board' || tab === 'reports') && typeof render === 'function') {
             render();
           }
         }
