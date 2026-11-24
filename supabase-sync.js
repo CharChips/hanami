@@ -23,6 +23,10 @@ function resetSupabaseConfig() {
   localStorage.removeItem('hanami_supabase_key');
 }
 
+function teamEscape(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
 class HanamiSupabaseSync {
   constructor() {
     this.client = null;
@@ -32,6 +36,7 @@ class HanamiSupabaseSync {
     this.isInitialized = false;
     this.leadSnap = new Map();
     this.companySnap = new Map();
+    this.teamAccessUserId = null;
     this.caps = {
       leadsLog: false,
       leadsCampaign: false,
@@ -584,6 +589,7 @@ class HanamiSupabaseSync {
     const modal = document.getElementById('inviteModal');
     const form = document.getElementById('inviteForm');
     const btnCopy = document.getElementById('btnCopyInviteLink');
+    const teamList = document.getElementById('invList');
 
     if (inviteBtn) {
       inviteBtn.onclick = () => this.openInviteModal();
@@ -602,9 +608,11 @@ class HanamiSupabaseSync {
         e.preventDefault();
         const email = (document.getElementById('invEmail')?.value || '').trim();
         const role = document.getElementById('invRole')?.value || 'collaborator';
-        const campaignId = document.getElementById('invCampaign')?.value || null;
+        const accessChoice = document.getElementById('invCampaign')?.value || '';
+        const campaignId = accessChoice === 'all' ? null : accessChoice;
         const btn = document.getElementById('btnSendInvite');
         if (!email) return;
+        if (!accessChoice) { toast('Choose a campaign or select full access before sending.'); return; }
 
         if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
         await this.createInvitation(email, role, campaignId);
@@ -622,6 +630,51 @@ class HanamiSupabaseSync {
         }
       };
     }
+
+    if (teamList && !teamList.dataset.bound) {
+      teamList.dataset.bound = '1';
+      teamList.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-team-action]');
+        if (!button) return;
+        const action = button.dataset.teamAction;
+        if (action === 'access') {
+          this.teamAccessUserId = this.teamAccessUserId === button.dataset.userId ? null : button.dataset.userId;
+          return this.loadInvitations();
+        }
+        if (action === 'cancel') {
+          const email = button.dataset.email;
+          if (!window.confirm('Clear all invitation records for ' + email + '?')) return;
+          return this.updateTeamAccount({ action: 'cancel_invitation', email });
+        }
+        if (action === 'resend') {
+          const email = button.dataset.email;
+          const role = button.dataset.role || 'collaborator';
+          const campaignId = button.dataset.campaignId || null;
+          return this.createInvitation(email, role, campaignId);
+        }
+        if (action === 'remove') {
+          const email = button.dataset.email;
+          if (!window.confirm('Remove ' + email + ' from BerryLeads? Their sign-in account and campaign access will be removed. Their leads and companies will be kept and reassigned to your owner account. This cannot be undone.')) return;
+          return this.updateTeamAccount({ action: 'remove_collaborator', userId: button.dataset.userId });
+        }
+      });
+      teamList.addEventListener('change', async (event) => {
+        const input = event.target;
+        if (!input.matches('[data-team-member]')) return;
+        const { userId, campaignId } = input.dataset;
+        const roleSelect = teamList.querySelector('[data-team-role="' + CSS.escape(userId + ':' + campaignId) + '"]');
+        const role = roleSelect?.value || 'collaborator';
+        const ok = await this.setCampaignMember(campaignId, userId, input.checked, role);
+        if (ok) await this.loadInvitations();
+      });
+      teamList.addEventListener('change', async (event) => {
+        const select = event.target;
+        if (!select.matches('[data-team-role]')) return;
+        const [userId, campaignId] = select.dataset.teamRole.split(':');
+        const ok = await this.setCampaignMember(campaignId, userId, true, select.value);
+        if (ok) await this.loadInvitations();
+      });
+    }
   }
 
   async openInviteModal() {
@@ -632,7 +685,7 @@ class HanamiSupabaseSync {
     const modal = document.getElementById('inviteModal');
     if (modal) modal.style.display = 'flex';
     const campaignSelect = document.getElementById('invCampaign');
-    if (campaignSelect) campaignSelect.innerHTML = '<option value="">All current campaigns</option>' + campaigns.map(c => '<option value="' + String(c.id).replace(/[&<>\"]/g, '') + '">' + String(c.name).replace(/[&<>\"]/g, '') + '</option>').join('');
+    if (campaignSelect) campaignSelect.innerHTML = '<option value="">Choose access…</option><option value="all">All campaigns · full access</option>' + campaigns.map(c => '<option value="' + teamEscape(c.id) + '">' + teamEscape(c.name) + '</option>').join('');
     await this.loadInvitations();
   }
 
@@ -649,9 +702,11 @@ class HanamiSupabaseSync {
     const { data, error } = await this.client.functions.invoke('invite-collaborator', {
       body: { email: email.toLowerCase(), role, campaignId, redirectTo: window.location.origin + window.location.pathname }
     });
-    if (error) throw error;
-    const inviteLink = data?.inviteLink;
-    if (!inviteLink) throw new Error(data?.error || 'Invitation email was not sent.');
+    let responseData = data;
+    if (error && error.context?.clone) { try { responseData = await error.context.clone().json(); } catch (_) {} }
+    if (error) throw new Error(responseData?.error || error.message || 'Could not send invitation.');
+    const inviteLink = responseData?.inviteLink;
+    if (!inviteLink) throw new Error(responseData?.error || 'Invitation email was not sent.');
 
     const resBox = document.getElementById('inviteResult');
     const targetEmail = document.getElementById('invTargetEmail');
@@ -677,37 +732,79 @@ class HanamiSupabaseSync {
     const list = document.getElementById('invList');
     if (!list) return;
 
-    if (!this.client) {
-      list.innerHTML = `<div class="meta" style="font-size:12px">No sent invitations yet.</div>`;
+    if (!this.client || this.user?.email?.toLowerCase() !== 'charchit.sahoo@peoplehum.com') {
+      list.innerHTML = '<div class="team-empty">Sign in as the workspace owner to manage the team.</div>';
       return;
     }
 
     try {
-      const { data, error } = await this.client
-        .from('invitations')
-        .select('email, role, status, created_at')
-        .eq('invited_by_id', this.user?.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      const [profileResult, inviteResult, memberResult] = await Promise.all([
+        this.client.from('profiles').select('user_id,email,nickname,role,created_at').order('nickname', { ascending: true }),
+        this.client.from('invitations').select('id,email,role,status,created_at,expires_at,campaign_id').order('created_at', { ascending: false }),
+        this.client.from('campaign_members').select('user_id,campaign_id,role')
+      ]);
+      const failure = profileResult.error || inviteResult.error || memberResult.error;
+      if (failure) throw failure;
 
-      if (error || !data || !data.length) {
-        list.innerHTML = `<div class="meta" style="font-size:12px">No pending invitations yet.</div>`;
-        return;
-      }
+      const active = (profileResult.data || []).filter(p => p.email && p.email.toLowerCase() !== 'charchit.sahoo@peoplehum.com' && p.role !== 'owner');
+      const activeEmails = new Set(active.map(p => p.email.toLowerCase()));
+      const invitationByEmail = new Map();
+      (inviteResult.data || []).forEach(inv => {
+        const email = (inv.email || '').trim().toLowerCase();
+        if (!email || activeEmails.has(email)) return;
+        const current = invitationByEmail.get(email) || { ...inv, count: 0 };
+        current.count++;
+        if (new Date(inv.created_at) > new Date(current.created_at)) Object.assign(current, inv, { count: current.count });
+        invitationByEmail.set(email, current);
+      });
+      const memberships = memberResult.data || [];
+      const count = document.getElementById('teamCount');
+      if (count) count.textContent = active.length + ' collaborator' + (active.length === 1 ? '' : 's') + ' · ' + invitationByEmail.size + ' invite' + (invitationByEmail.size === 1 ? '' : 's');
 
-      list.innerHTML = data.map(inv => `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--card);border:1px solid var(--line);border-radius:8px;font-size:12px">
-          <div>
-            <b>${inv.email}</b>
-            <span class="role-badge role-${inv.role}" style="font-size:9.5px;padding:1px 5px;margin-left:4px">${inv.role.toUpperCase()}</span>
-          </div>
-          <span style="font-size:11px;font-weight:600;color:${inv.status === 'accepted' ? 'var(--leaf)' : 'var(--warn)'}">
-            ${inv.status === 'accepted' ? '✓ Joined' : '⏳ Pending'}
-          </span>
-        </div>
-      `).join('');
+      const activeRows = active.map(profile => {
+        const userId = profile.user_id, email = profile.email.toLowerCase();
+        const userMemberships = memberships.filter(m => m.user_id === userId);
+        const assignedCount = userMemberships.length;
+        const accessLabel = campaigns.length && assignedCount >= campaigns.length ? 'All ' + campaigns.length + ' campaigns' : assignedCount + ' of ' + campaigns.length + ' campaigns';
+        const expanded = this.teamAccessUserId === userId;
+        const campaignRows = campaigns.map(c => {
+          const membership = userMemberships.find(m => m.campaign_id === c.id);
+          const key = userId + ':' + c.id;
+          return '<div class="team-campaign-row"><label><input type="checkbox" data-team-member="1" data-user-id="' + teamEscape(userId) + '" data-campaign-id="' + teamEscape(c.id) + '"' + (membership ? ' checked' : '') + '> ' + teamEscape(c.name) + '</label><select aria-label="Role for ' + teamEscape(profile.email) + ' in ' + teamEscape(c.name) + '" data-team-role="' + teamEscape(key) + '" data-user-id="' + teamEscape(userId) + '" data-campaign-id="' + teamEscape(c.id) + '"' + (membership ? '' : ' disabled') + '><option value="collaborator"' + (membership?.role !== 'viewer' ? ' selected' : '') + '>Can edit</option><option value="viewer"' + (membership?.role === 'viewer' ? ' selected' : '') + '>View only</option></select></div>';
+        }).join('');
+        return '<article class="team-member"><div class="team-member-row"><div class="team-member-ident"><b>' + teamEscape(profile.nickname || email) + '</b><div class="meta">' + teamEscape(email) + ' · ' + teamEscape((profile.role || 'collaborator').replace(/^./, c => c.toUpperCase())) + ' · ' + teamEscape(accessLabel) + '</div></div><div class="team-member-actions"><button type="button" class="sm" data-team-action="access" data-user-id="' + teamEscape(userId) + '">' + (expanded ? 'Close access' : 'Campaign access') + '</button><button type="button" class="sm team-remove" data-team-action="remove" data-user-id="' + teamEscape(userId) + '" data-email="' + teamEscape(email) + '">Remove account</button></div></div>' + (expanded ? '<div class="team-access-panel"><div class="meta">Choose only the campaigns this person should access. Uncheck the rest.</div>' + (campaignRows || '<div class="team-empty">Create a campaign before assigning access.</div>') + '</div>' : '') + '</article>';
+      }).join('');
+
+      const invitationRows = [...invitationByEmail.values()].map(inv => {
+        const expired = inv.status === 'pending' && inv.expires_at && new Date(inv.expires_at) <= new Date();
+        const status = inv.status === 'accepted' ? 'Accepted · account profile missing' : expired ? 'Expired invite' : 'Invite pending';
+        const campaignName = inv.campaign_id ? (campaigns.find(c => c.id === inv.campaign_id)?.name || 'Selected campaign') : 'All current campaigns';
+        return '<article class="team-member"><div class="team-member-row"><div class="team-member-ident"><b>' + teamEscape(inv.email) + '</b><div class="meta">' + teamEscape(status) + ' · ' + teamEscape(inv.role || 'collaborator') + ' · ' + teamEscape(campaignName) + (inv.count > 1 ? ' · ' + inv.count + ' duplicate invites' : '') + '</div></div><div class="team-member-actions">' + (inv.status === 'pending' ? '<button type="button" class="sm" data-team-action="resend" data-email="' + teamEscape(inv.email) + '" data-role="' + teamEscape(inv.role || 'collaborator') + '" data-campaign-id="' + teamEscape(inv.campaign_id || '') + '">Resend</button>' : '') + '<button type="button" class="sm team-remove" data-team-action="cancel" data-email="' + teamEscape(inv.email) + '">Clear invite</button></div></div></article>';
+      }).join('');
+
+      list.innerHTML = activeRows + invitationRows || '<div class="team-empty">No collaborators or pending invitations yet. Invite someone above to get started.</div>';
     } catch(e) {
-      list.innerHTML = `<div class="meta" style="font-size:12px">No pending invitations.</div>`;
+      list.innerHTML = '<div class="team-empty">Could not load team access: ' + teamEscape(e.message || 'Please try again.') + '</div>';
+    }
+  }
+
+  async updateTeamAccount(body) {
+    try {
+      if (!this.client || this.user?.email?.toLowerCase() !== 'charchit.sahoo@peoplehum.com') throw new Error('Only the workspace owner can manage accounts.');
+      const { data, error } = await this.client.functions.invoke('invite-collaborator', { body });
+      let responseData = data;
+      if (error && error.context?.clone) { try { responseData = await error.context.clone().json(); } catch (_) {} }
+      if (error || responseData?.error) throw new Error(responseData?.error || error.message || 'Could not update team access.');
+      if (body.action === 'remove_collaborator') {
+        this.teamAccessUserId = null;
+        await this.loadAll();
+        toast('Account removed. Their leads and companies were kept.');
+      } else {
+        toast('Pending invitation cleared.');
+      }
+      await this.loadInvitations();
+    } catch (error) {
+      toast(error.message || 'Could not update team access.');
     }
   }
 

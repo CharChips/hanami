@@ -25,10 +25,17 @@ begin
       from public.profiles p where p.user_id = auth.uid();
     new.created_by_name := coalesce(creator_name, split_part(auth.jwt() ->> 'email', '@', 1), 'Team member');
   else
-    -- Upserts may execute the INSERT trigger before an UPDATE on conflict.
-    -- Preserve the original creator so edits never rewrite attribution.
-    new.created_by := old.created_by;
-    new.created_by_name := old.created_by_name;
+    -- Service-role account removal may clear the auth.users reference while
+    -- retaining the visible creator name on the lead.
+    if auth.role() = 'service_role' and new.created_by is null then
+      new.created_by := null;
+      new.created_by_name := old.created_by_name;
+    else
+      -- Upserts may execute the INSERT trigger before an UPDATE on conflict.
+      -- Preserve the original creator so edits never rewrite attribution.
+      new.created_by := old.created_by;
+      new.created_by_name := old.created_by_name;
+    end if;
   end if;
   return new;
 end;
