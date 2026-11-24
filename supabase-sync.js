@@ -739,7 +739,7 @@ class HanamiSupabaseSync {
 
     try {
       const [profileResult, inviteResult, memberResult] = await Promise.all([
-        this.client.from('profiles').select('user_id,email,nickname,role,created_at').order('nickname', { ascending: true }),
+        this.client.from('profiles').select('user_id,email,nickname,role').order('nickname', { ascending: true }),
         this.client.from('invitations').select('id,email,role,status,created_at,expires_at,campaign_id').order('created_at', { ascending: false }),
         this.client.from('campaign_members').select('user_id,campaign_id,role')
       ]);
